@@ -15,7 +15,7 @@ export default class Player {
     this.currentExp = 0;
     this.maxExp     = EXP_TABLE[1];
 
-    // ── 스탯 ──
+    // ── 스탯 포인트 ──
     this.str = 5;
     this.dex = 5;
     this.int = 5;
@@ -29,14 +29,17 @@ export default class Player {
     // ── 넉백 상태 ──
     this._isKnockback = false;
 
-    // 노란 사각형 캐릭터
-    this.sprite = scene.add.rectangle(x, y, 32, 32, 0xffdd00);
-    scene.physics.add.existing(this.sprite);
-    this.sprite.body.setCollideWorldBounds(false);
-    this.sprite.setDepth(5);
+    // ── 방향 ──
+    this._lastDir = 'down';  // 'down' | 'up' | 'right' | 'left'
+    this.facingX  = 0;
+    this.facingY  = 1;
 
-    // 방향 표시 삼각형
-    this._dirGfx = scene.add.graphics().setDepth(6);
+    // 스프라이트
+    this.sprite = scene.physics.add.sprite(x, y, 'player', 0);
+    this.sprite.setDepth(5);
+    this.sprite.body.setSize(22, 20).setOffset(5, 12);
+    this.sprite.body.setCollideWorldBounds(false);
+    this.sprite.play('player_idle_down');
 
     this.speed   = 220;
     this.targetX = x;
@@ -45,9 +48,6 @@ export default class Player {
 
     this.padDx = 0;
     this.padDy = 0;
-
-    this.facingX = 1;
-    this.facingY = 0;
   }
 
   // ── 피격 ──────────────────────────────────────────────────────────────────
@@ -56,7 +56,6 @@ export default class Player {
 
     this.hp = Math.max(0, this.hp - amount);
 
-    // 빨간 데미지 숫자
     const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 20, `-${amount}`, {
       fontSize: '20px', fontStyle: 'bold',
       color: '#ff4444', stroke: '#000', strokeThickness: 4,
@@ -67,10 +66,7 @@ export default class Player {
       onComplete: () => txt.destroy(),
     });
 
-    // 넉백
     this._applyKnockback(kbDirX, kbDirY);
-
-    // 무적 시작 (1.5초)
     this._startInvincibility();
 
     if (this.hp <= 0) this.scene.onPlayerDead();
@@ -92,15 +88,11 @@ export default class Player {
   _startInvincibility() {
     this.isInvincible = true;
 
-    // 깜빡임 트윈
     if (this._blinkTween) this._blinkTween.stop();
     this.sprite.setAlpha(1);
     this._blinkTween = this.scene.tweens.add({
-      targets: this.sprite,
-      alpha: 0.25,
-      duration: 120,
-      yoyo: true,
-      repeat: -1,
+      targets: this.sprite, alpha: 0.25,
+      duration: 120, yoyo: true, repeat: -1,
     });
 
     this.scene.time.delayedCall(1000, () => {
@@ -137,26 +129,6 @@ export default class Player {
     });
   }
 
-  // ── 방향 표시 삼각형 ───────────────────────────────────────────────────────
-  _drawFacing() {
-    const g  = this._dirGfx;
-    g.clear();
-
-    const cx = this.sprite.x;
-    const cy = this.sprite.y;
-    const fx = this.facingX, fy = this.facingY;
-    const px = -fy, py = fx;
-
-    const tip = { x: cx + fx * 32, y: cy + fy * 32 };
-    const l   = { x: cx + fx * 22 + px * 7, y: cy + fy * 22 + py * 7 };
-    const r   = { x: cx + fx * 22 - px * 7, y: cy + fy * 22 - py * 7 };
-
-    g.fillStyle(0xffffff, 0.9);
-    g.fillTriangle(tip.x, tip.y, l.x, l.y, r.x, r.y);
-    g.lineStyle(1.5, 0xffdd00, 0.8);
-    g.strokeTriangle(tip.x, tip.y, l.x, l.y, r.x, r.y);
-  }
-
   // ── 이동 ──────────────────────────────────────────────────────────────────
   moveTo(x, y) {
     if (this._isKnockback) return;
@@ -177,7 +149,10 @@ export default class Player {
   }
 
   update() {
-    if (this._isKnockback) { this._drawFacing(); return; }
+    if (this._isKnockback) {
+      this._updateAnim(false);
+      return;
+    }
 
     if (this.padDx !== 0 || this.padDy !== 0) {
       const len = Math.sqrt(this.padDx * this.padDx + this.padDy * this.padDy);
@@ -185,13 +160,13 @@ export default class Player {
         (this.padDx / len) * this.speed,
         (this.padDy / len) * this.speed,
       );
-      this._drawFacing();
+      this._updateAnim(true);
       return;
     }
 
     if (!this.moving) {
       this.sprite.body.setVelocity(0, 0);
-      this._drawFacing();
+      this._updateAnim(false);
       return;
     }
 
@@ -209,7 +184,36 @@ export default class Player {
       this.facingX = dx / dist;
       this.facingY = dy / dist;
     }
-    this._drawFacing();
+    this._updateAnim(this.moving);
+  }
+
+  _updateAnim(isMoving) {
+    const vx = this.sprite.body.velocity.x;
+    const vy = this.sprite.body.velocity.y;
+    const spd = Math.sqrt(vx * vx + vy * vy);
+
+    // 방향 결정
+    if (spd > 20) {
+      if (Math.abs(vx) >= Math.abs(vy)) {
+        this._lastDir = vx > 0 ? 'right' : 'left';
+      } else {
+        this._lastDir = vy > 0 ? 'down' : 'up';
+      }
+      this.facingX = vx / spd;
+      this.facingY = vy / spd;
+    }
+
+    const dir = this._lastDir;
+    const isLeft = dir === 'left';
+    this.sprite.setFlipX(isLeft);
+    const baseDir = isLeft ? 'right' : dir;
+    const animKey = (isMoving && spd > 20)
+      ? `player_walk_${baseDir}`
+      : `player_idle_${baseDir}`;
+
+    if (this.sprite.anims.currentAnim?.key !== animKey) {
+      this.sprite.play(animKey, true);
+    }
   }
 
   get x() { return this.sprite.x; }

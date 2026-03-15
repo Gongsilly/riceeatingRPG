@@ -12,16 +12,15 @@ export default class Snail {
     this.hp    = data.hp;
     this.maxHp = data.hp;
 
-    // 몸통 & 껍질
-    this.sprite = scene.add.ellipse(x, y, 28, 20, data.bodyColor);
-    this.shell  = scene.add.ellipse(x - 4, y - 4, 16, 16, data.shellColor);
-
-    scene.physics.add.existing(this.sprite);
+    // 스프라이트
+    this.sprite = scene.physics.add.sprite(x, y, type, 0);
+    this.sprite.setDepth(4);
     this.sprite.body.setCollideWorldBounds(false);
+    this.sprite.play(`${type}_walk`);
 
     // HP 바
-    this.hpBarBg = scene.add.rectangle(x, y - 20, 30, 4, 0x333333);
-    this.hpBar   = scene.add.rectangle(x, y - 20, 30, 4, 0x00ff44);
+    this.hpBarBg = scene.add.rectangle(x, y - 20, 30, 4, 0x333333).setDepth(4);
+    this.hpBar   = scene.add.rectangle(x, y - 20, 30, 4, 0x00ff44).setDepth(4);
 
     // 이름 라벨
     this._nameLabel = scene.add.text(x, y + 20, data.name, {
@@ -50,24 +49,22 @@ export default class Snail {
     if (!this.alive) return;
     this.hp -= amount;
 
-    // 데미지 숫자 (일반: 흰색, 크리티컬: 주황색)
+    // 데미지 숫자
     const color  = isCritical ? '#ff8800' : '#ffffff';
     const size   = isCritical ? '24px'    : '18px';
     const label  = isCritical ? `${amount}!` : `${amount}`;
-    const offsetX = Phaser.Math.Between(-10, 10);
 
     const txt = this.scene.add.text(
-      this.sprite.x + offsetX, this.sprite.y - 10, label,
+      this.sprite.x + Phaser.Math.Between(-10, 10),
+      this.sprite.y - 10, label,
       { fontSize: size, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 3 },
     ).setDepth(10).setOrigin(0.5);
 
     this.scene.tweens.add({
       targets: txt, y: txt.y - 55, alpha: 0, duration: 900,
-      ease: 'Power2',
-      onComplete: () => txt.destroy(),
+      ease: 'Power2', onComplete: () => txt.destroy(),
     });
 
-    // 넉백
     if ((kbDirX !== 0 || kbDirY !== 0) && !this._isKnockback) {
       this._applyKnockback(kbDirX, kbDirY);
     }
@@ -92,9 +89,13 @@ export default class Snail {
     this.hpBarBg.destroy();
     this._nameLabel.destroy();
 
-    // 경험치 & 드롭은 즉시 처리 (좌표 고정)
     const spawnX = this.sprite.x;
     const spawnY = this.sprite.y;
+
+    this.sprite.body.setEnable(false);
+    this.sprite.body.setVelocity(0, 0);
+
+    // 경험치 & 드롭 즉시 처리
     this.scene.player.gainExp(this.monsterData.exp);
     this.monsterData.drops.forEach(drop => {
       if (Math.random() < drop.chance) {
@@ -102,17 +103,14 @@ export default class Snail {
       }
     });
 
-    // 사망 연출: 반투명 + 위로 떠오르며 소멸
+    // 사망 연출: 위로 떠오르며 페이드
     this.scene.tweens.add({
-      targets: [this.sprite, this.shell],
-      y: '-=40',
+      targets: this.sprite,
+      y: this.sprite.y - 40,
       alpha: 0,
       duration: 500,
       ease: 'Power1',
-      onComplete: () => {
-        this.sprite.destroy();
-        this.shell.destroy();
-      },
+      onComplete: () => this.sprite.destroy(),
     });
   }
 
@@ -126,13 +124,12 @@ export default class Snail {
 
       if (dist > 5) {
         this.sprite.body.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
+        // 방향에 따라 스프라이트 뒤집기
+        if (Math.abs(dx) > 5) this.sprite.setFlipX(dx < 0);
       } else {
         this.sprite.body.setVelocity(0, 0);
       }
     }
-
-    this.shell.x = this.sprite.x - 4;
-    this.shell.y = this.sprite.y - 5;
 
     const ratio = Math.max(0, this.hp / this.maxHp);
     this.hpBarBg.x = this.sprite.x;
@@ -142,6 +139,6 @@ export default class Snail {
     this.hpBar.width = 30 * ratio;
 
     this._nameLabel.x = this.sprite.x;
-    this._nameLabel.y = this.sprite.y + 20;
+    this._nameLabel.y = this.sprite.y + 18;
   }
 }

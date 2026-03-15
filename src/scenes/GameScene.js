@@ -21,13 +21,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    // ── 맵 배경 ──
-    const mapGfx = this.add.graphics();
-    mapGfx.fillStyle(0x0d1b2a, 1);
-    mapGfx.fillRect(0, 0, MAP_W, MAP_H);
-    mapGfx.lineStyle(1, 0x1a2a3a, 0.6);
-    for (let x = 0; x < MAP_W; x += 64) mapGfx.lineBetween(x, 0, x, MAP_H);
-    for (let y = 0; y < MAP_H; y += 64) mapGfx.lineBetween(0, y, MAP_W, y);
+    // ── 타일맵 배경 ──
+    this._buildTilemap();
 
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
 
@@ -89,7 +84,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.005', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.006', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -502,6 +497,66 @@ export default class GameScene extends Phaser.Scene {
     this._apTxt.setText(`AP: ${p.ap}`);
     ['str', 'dex', 'int', 'luk'].forEach(k => {
       this._statValueTxts[k].setText(`${p[k]}`);
+    });
+  }
+
+  // ── 타일맵 ───────────────────────────────────────────────────────────────────
+  _buildTilemap() {
+    const mapData = this._generateMapData();
+    const map = this.make.tilemap({ data: mapData, tileWidth: 32, tileHeight: 32 });
+    const tileset = map.addTilesetImage('tiles', 'tileset', 32, 32, 0, 0, 1);
+    map.createLayer(0, tileset, 0, 0).setDepth(-2);
+    this._placeTreeDecorations();
+  }
+
+  _generateMapData() {
+    const COLS = MAP_W / 32;  // 100
+    const ROWS = MAP_H / 32;  // 75
+    const data  = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = [];
+      for (let c = 0; c < COLS; c++) {
+        const onHPath = r >= 36 && r <= 38;
+        const onVPath = c >= 48 && c <= 50;
+        if (onHPath || onVPath) {
+          row.push(4 + ((c + r) % 2)); // 흙 (4 or 5)
+        } else {
+          const h = (c * 31 + r * 17) % 100;
+          if (h < 38)      row.push(1); // 어두운 잔디
+          else if (h < 68) row.push(2); // 중간 잔디
+          else if (h < 85) row.push(3); // 밝은 잔디
+          else             row.push(6); // 꽃 잔디
+        }
+      }
+      data.push(row);
+    }
+    return data;
+  }
+
+  _placeTreeDecorations() {
+    const rng = (min, max) => Phaser.Math.Between(min, max);
+    const positions = [];
+
+    // 맵 테두리 나무
+    for (let i = 0; i < 50; i++) {
+      positions.push([rng(16, 120),           rng(16, MAP_H - 16)]);
+      positions.push([rng(MAP_W - 120, MAP_W - 16), rng(16, MAP_H - 16)]);
+    }
+    for (let i = 0; i < 30; i++) {
+      positions.push([rng(120, MAP_W - 120), rng(16, 100)]);
+      positions.push([rng(120, MAP_W - 120), rng(MAP_H - 100, MAP_H - 16)]);
+    }
+    // 내부 산발적 나무
+    for (let i = 0; i < 40; i++) {
+      const x = rng(150, MAP_W - 150);
+      const y = rng(150, MAP_H - 150);
+      if (Math.abs(x - MAP_W/2) > 350 || Math.abs(y - MAP_H/2) > 300) {
+        positions.push([x, y]);
+      }
+    }
+
+    positions.forEach(([x, y]) => {
+      this.add.image(x, y, 'tree').setDepth(y * 0.001); // y-sort depth
     });
   }
 }
