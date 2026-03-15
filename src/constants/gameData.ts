@@ -60,6 +60,7 @@ export interface MonsterData {
   name: string;
   hp: number;
   exp: number;
+  damage: number;
   bodyColor: number;
   shellColor: number;
   drops: DropEntry[];
@@ -68,7 +69,7 @@ export interface MonsterData {
 export const MONSTER_DATA: { [key: string]: MonsterData } = {
   green_snail: {
     id: 'green_snail', name: '달팽이',
-    hp: 8, exp: 3,
+    hp: 8, exp: 3, damage: 3,
     bodyColor: 0x44cc44, shellColor: 0x228822,
     drops: [
       { itemId: 'snail_shell', chance: 0.40 },
@@ -77,7 +78,7 @@ export const MONSTER_DATA: { [key: string]: MonsterData } = {
   },
   blue_snail: {
     id: 'blue_snail', name: '파란 달팽이',
-    hp: 15, exp: 5,
+    hp: 15, exp: 5, damage: 5,
     bodyColor: 0x4488ff, shellColor: 0x2255cc,
     drops: [
       { itemId: 'blue_shell', chance: 0.35 },
@@ -86,7 +87,7 @@ export const MONSTER_DATA: { [key: string]: MonsterData } = {
   },
   spore: {
     id: 'spore', name: '스포아',
-    hp: 20, exp: 6,
+    hp: 20, exp: 6, damage: 7,
     bodyColor: 0xaa44cc, shellColor: 0x772299,
     drops: [
       { itemId: 'spore_drop', chance: 0.45 },
