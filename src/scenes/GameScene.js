@@ -34,18 +34,19 @@ export default class GameScene extends Phaser.Scene {
 
   create(data) {
     // scene.restart() 시 constructor는 재실행되지 않으므로 상태 수동 리셋
-    this._transitioning = false;
-    this._isDead        = false;
-    this.snails         = [];
-    this.attacks        = [];
-    this.items          = [];
-    this.portals        = [];
-    this.inventory      = [];   // 씬 재시작마다 DB에서 새로 로드
-    this._inventoryUI   = null;
-    this._saveManager   = null;
-    this._isArena       = false;
-    this._arenaClient   = null;
-    this._otherPlayers  = new Map();
+    this._transitioning  = false;
+    this._isDead         = false;
+    this._portalCooldown = true;   // 씬 시작 직후 포탈 즉시 진입 방지
+    this.snails          = [];
+    this.attacks         = [];
+    this.items           = [];
+    this.portals         = [];
+    this.inventory       = [];   // 씬 재시작마다 DB에서 새로 로드
+    this._inventoryUI    = null;
+    this._saveManager    = null;
+    this._isArena        = false;
+    this._arenaClient    = null;
+    this._otherPlayers   = new Map();
 
     // ── 현재 맵 정보 ──
     const mapId  = data?.mapId  ?? 100000000;
@@ -164,6 +165,9 @@ export default class GameScene extends Phaser.Scene {
     this._buildSaveSystem();
     if (this._isArena) this._initArena();
     this._buildLighting();
+
+    // 포탈 쿨다운 해제 (스폰 직후 포탈 즉시 진입 방지)
+    this.time.delayedCall(1200, () => { this._portalCooldown = false; });
   }
 
   // ── 스테이터스 UI (HP/MP, 좌상단) ─────────────────────────────────────────
@@ -174,7 +178,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.035', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.036', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -477,11 +481,14 @@ export default class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
 
     this.input.once('pointerdown', () => {
+      const snap = this._getCharSnapshot();
+      snap.hp = snap.maxHp;  // 부활 시 풀피
+      snap.mp = snap.maxMp;
       this.scene.restart({
         mapId:     this._currentMap.map_id,
-        startX:    this.player.x,
-        startY:    this.player.y,
-        charStats: this._getCharSnapshot(),
+        startX:    this._mapW / 2,
+        startY:    this._mapH / 2,
+        charStats: snap,
       });
     });
   }
@@ -523,7 +530,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // 포탈 충돌 체크
-    if (!this._transitioning) {
+    if (!this._transitioning && !this._portalCooldown) {
       this.portals.forEach(portal => {
         const inRange = portal.checkOverlap(this.player);
         portal.showHint(inRange);
@@ -594,8 +601,8 @@ export default class GameScene extends Phaser.Scene {
     return {
       currentLevel: p.level,
       currentExp:   p.currentExp,
-      hp: p.maxHp, maxHp: p.maxHp,
-      mp: p.maxMp, maxMp: p.maxMp,
+      hp: p.hp, maxHp: p.maxHp,
+      mp: p.mp, maxMp: p.maxMp,
       str: p.str, dex: p.dex,
       int: p.int, luk: p.luk,
       ap:  p.ap,
