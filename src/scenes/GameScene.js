@@ -71,10 +71,10 @@ export default class GameScene extends Phaser.Scene {
       this.player.level      = cs.currentLevel ?? 1;
       this.player.currentExp = cs.currentExp   ?? 0;
       this.player.maxExp     = EXP_TABLE[cs.currentLevel ?? 1] ?? 15;
-      this.player.hp         = cs.hp  ?? 50;
-      this.player.maxHp      = cs.hp  ?? 50;
-      this.player.mp         = cs.mp  ?? 50;
-      this.player.maxMp      = cs.mp  ?? 50;
+      this.player.maxHp      = cs.maxHp ?? cs.hp ?? 50;
+      this.player.hp         = Math.min(cs.hp ?? this.player.maxHp, this.player.maxHp);
+      this.player.maxMp      = cs.maxMp ?? cs.mp ?? 50;
+      this.player.mp         = Math.min(cs.mp ?? this.player.maxMp, this.player.maxMp);
       this.player.str        = cs.str ?? 4;
       this.player.dex        = cs.dex ?? 4;
       this.player.int        = cs.int ?? 4;
@@ -442,7 +442,11 @@ export default class GameScene extends Phaser.Scene {
         this._isDead = false;
         // HP 회복
         this.player.hp = this.player.maxHp;
-        this.player.isInvincible = false;
+        // blink tween 정리
+        if (this.player._blinkTween) {
+          this.player._blinkTween.stop();
+          this.player._blinkTween = null;
+        }
         this.player.sprite.setAlpha(1);
         // 중앙으로 텔레포트 (physics body 포함)
         const rx = this._mapW / 2, ry = this._mapH / 2;
@@ -453,6 +457,8 @@ export default class GameScene extends Phaser.Scene {
         // HP바 갱신
         if (this._hpFill) this._hpFill.setSize(this._statusBarW, this._hpFill.height);
         this._arenaClient?.updateStats(this.player.hp, this.player.maxHp, this.player.level);
+        // 리스폰 무적
+        this.player._startInvincibility();
       });
       return;
     }
@@ -588,7 +594,8 @@ export default class GameScene extends Phaser.Scene {
     return {
       currentLevel: p.level,
       currentExp:   p.currentExp,
-      hp:  p.hp,  mp:  p.mp,
+      hp: p.maxHp, maxHp: p.maxHp,
+      mp: p.maxMp, maxMp: p.maxMp,
       str: p.str, dex: p.dex,
       int: p.int, luk: p.luk,
       ap:  p.ap,
