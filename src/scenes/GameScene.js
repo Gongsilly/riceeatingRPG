@@ -84,7 +84,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.006', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.007', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -481,14 +481,47 @@ export default class GameScene extends Phaser.Scene {
       this._toggleStatWindow();
     });
 
+    // 기준 Y 저장 후 숨김
+    this._statWinBaseY = new Map(this._statWinObjs.map(o => [o, o.y]));
     this._statWinObjs.forEach(o => o.setVisible(false));
     this._statWinVisible = false;
   }
 
   _toggleStatWindow() {
     this._statWinVisible = !this._statWinVisible;
-    this._statWinObjs.forEach(o => o.setVisible(this._statWinVisible));
-    if (this._statWinVisible) this._updateStatWindow();
+    this._statWinObjs.forEach(o => this.tweens.killTweensOf(o));
+
+    if (this._statWinVisible) {
+      this._updateStatWindow();
+      // 아래에서 슬라이드 업 + 페이드인
+      this._statWinObjs.forEach(o => {
+        o.y = this._statWinBaseY.get(o) + 42;
+        o.setVisible(true).setAlpha(0);
+        this.tweens.add({
+          targets: o,
+          y: this._statWinBaseY.get(o),
+          alpha: 1,
+          duration: 300,
+          ease: 'Power3.Out',
+        });
+      });
+    } else {
+      // 아래로 슬라이드 아웃 + 페이드아웃
+      this._statWinObjs.forEach(o => {
+        const baseY = this._statWinBaseY.get(o);
+        this.tweens.add({
+          targets: o,
+          y: baseY + 25,
+          alpha: 0,
+          duration: 200,
+          ease: 'Power2.In',
+          onComplete: () => {
+            o.setVisible(false);
+            o.y = baseY;
+          },
+        });
+      });
+    }
   }
 
   _updateStatWindow() {

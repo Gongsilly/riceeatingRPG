@@ -59,12 +59,29 @@ export default class Player {
     const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 20, `-${amount}`, {
       fontSize: '20px', fontStyle: 'bold',
       color: '#ff4444', stroke: '#000', strokeThickness: 4,
-    }).setDepth(20).setOrigin(0.5);
+    }).setDepth(20).setOrigin(0.5).setScale(0);
 
+    // 팝인 → 둥실 떠오르기
     this.scene.tweens.add({
-      targets: txt, y: txt.y - 45, alpha: 0, duration: 900,
-      onComplete: () => txt.destroy(),
+      targets: txt,
+      scale: 1.2,
+      duration: 90,
+      ease: 'Back.Out',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: txt,
+          y: txt.y - 50,
+          alpha: 0,
+          scale: 0.8,
+          duration: 900,
+          ease: 'Power2',
+          onComplete: () => txt.destroy(),
+        });
+      },
     });
+
+    // 카메라 쉐이크 (플레이어 피격은 좀 더 강하게)
+    this.scene.cameras.main.shake(130, 0.007);
 
     this._applyKnockback(kbDirX, kbDirY);
     this._startInvincibility();

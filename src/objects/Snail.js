@@ -58,12 +58,29 @@ export default class Snail {
       this.sprite.x + Phaser.Math.Between(-10, 10),
       this.sprite.y - 10, label,
       { fontSize: size, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 3 },
-    ).setDepth(10).setOrigin(0.5);
+    ).setDepth(10).setOrigin(0.5).setScale(0);
 
+    // 팝인 → 둥실 떠오르기
     this.scene.tweens.add({
-      targets: txt, y: txt.y - 55, alpha: 0, duration: 900,
-      ease: 'Power2', onComplete: () => txt.destroy(),
+      targets: txt,
+      scale: isCritical ? 1.5 : 1.1,
+      duration: isCritical ? 110 : 80,
+      ease: 'Back.Out',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: txt,
+          y: txt.y - (isCritical ? 85 : 58),
+          alpha: 0,
+          scale: isCritical ? 1.0 : 0.75,
+          duration: isCritical ? 1050 : 820,
+          ease: 'Power2',
+          onComplete: () => txt.destroy(),
+        });
+      },
     });
+
+    // 카메라 쉐이크
+    this.scene.cameras.main.shake(isCritical ? 100 : 65, isCritical ? 0.005 : 0.003);
 
     if ((kbDirX !== 0 || kbDirY !== 0) && !this._isKnockback) {
       this._applyKnockback(kbDirX, kbDirY);
