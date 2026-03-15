@@ -34,6 +34,9 @@ export default class Player {
     this.facingX  = 0;
     this.facingY  = 1;
 
+    // 그림자
+    this._shadow = scene.add.ellipse(x, y + 14, 28, 10, 0x000000, 0.30).setDepth(3);
+
     // 스프라이트
     this.sprite = scene.physics.add.sprite(x, y, 'player', 0);
     this.sprite.setDepth(5);
@@ -166,6 +169,8 @@ export default class Player {
   }
 
   update() {
+    this._shadow.setPosition(this.sprite.x, this.sprite.y + 14);
+
     if (this._isKnockback) {
       this._updateAnim(false);
       return;

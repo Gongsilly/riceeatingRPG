@@ -18,6 +18,11 @@ export default class Snail {
     this.sprite.body.setCollideWorldBounds(false);
     this.sprite.play(`${type}_walk`);
 
+    // 그림자
+    const shW = type === 'spore' ? 20 : 24;
+    const shH = type === 'spore' ? 7  : 8;
+    this._shadow = scene.add.ellipse(x, y + 10, shW, shH, 0x000000, 0.22).setDepth(3);
+
     // HP 바
     this.hpBarBg = scene.add.rectangle(x, y - 20, 30, 4, 0x333333).setDepth(4);
     this.hpBar   = scene.add.rectangle(x, y - 20, 30, 4, 0x00ff44).setDepth(4);
@@ -106,6 +111,12 @@ export default class Snail {
     this.hpBarBg.destroy();
     this._nameLabel.destroy();
 
+    // 그림자 페이드아웃
+    this.scene.tweens.add({
+      targets: this._shadow, alpha: 0, duration: 350,
+      onComplete: () => this._shadow.destroy(),
+    });
+
     const spawnX = this.sprite.x;
     const spawnY = this.sprite.y;
 
@@ -133,6 +144,8 @@ export default class Snail {
 
   update() {
     if (!this.alive) return;
+
+    this._shadow.setPosition(this.sprite.x, this.sprite.y + 10);
 
     if (!this._isKnockback) {
       const dx   = this.targetX - this.sprite.x;

@@ -74,6 +74,7 @@ export default class GameScene extends Phaser.Scene {
     this._buildGamepad();
     if (IS_MOBILE) this._buildLootButton();
     this._buildStatWindow();
+    this._buildLighting();
   }
 
   // ── 스테이터스 UI (HP/MP, 좌상단) ─────────────────────────────────────────
@@ -84,7 +85,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.007', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.008', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -531,6 +532,20 @@ export default class GameScene extends Phaser.Scene {
     ['str', 'dex', 'int', 'luk'].forEach(k => {
       this._statValueTxts[k].setText(`${p[k]}`);
     });
+  }
+
+  // ── 라이팅 (비넷 + 블룸) ────────────────────────────────────────────────────
+  _buildLighting() {
+    if (!this.game.renderer.gl) return; // WebGL 전용
+    try {
+      const fx = this.cameras.main.postFX;
+      // 비넷: 화면 외곽을 어둡게
+      fx.addVignette(0.5, 0.5, 0.75, 0.35);
+      // 블룸: 밝은 오브젝트(파티클 등) 빛 번짐
+      fx.addBloom(0xffffff, 1, 1, 1, 0.18, 4);
+    } catch (e) {
+      // postFX 미지원 환경 무시
+    }
   }
 
   // ── 타일맵 ───────────────────────────────────────────────────────────────────
