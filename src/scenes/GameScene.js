@@ -50,6 +50,10 @@ export default class GameScene extends Phaser.Scene {
 
     this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this._gamepadPointers = new Set();
+    this._atkBtn = null;
+
+    // 멀티터치 포인터 추가 (조이스틱 + 공격버튼 동시 입력)
+    this.input.addPointer(2);
 
     // ── 월드 입력 ──
     this.input.on('pointerup', (ptr) => {
@@ -60,8 +64,24 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.on('pointerdown', (ptr) => {
+      // PC 우클릭 공격
       if (ptr.rightButtonDown()) {
         this._doMeleeAttack(ptr.worldX, ptr.worldY);
+        return;
+      }
+      // 공격 버튼 범위 체크 (멀티터치 포함)
+      if (this._atkBtn) {
+        const { ax, ay, atkR, drawAtk } = this._atkBtn;
+        const dx = ptr.x - ax, dy = ptr.y - ay;
+        if (dx * dx + dy * dy <= atkR * atkR) {
+          this._gamepadPointers.add(ptr.id);
+          this._atkBtn.activePtr = ptr.id;
+          drawAtk(true);
+          if (navigator.vibrate) navigator.vibrate(30);
+          const tx = this.player.x + this.player.facingX * 300;
+          const ty = this.player.y + this.player.facingY * 300;
+          this._doMeleeAttack(tx, ty);
+        }
       }
     });
 
@@ -82,7 +102,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.014', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.015', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -193,18 +213,8 @@ export default class GameScene extends Phaser.Scene {
     };
     drawAtk(false);
 
-    const atkZone = this.add.zone(ax, ay, atkR * 2.2, atkR * 2.2)
-      .setScrollFactor(0).setDepth(59).setInteractive();
-    atkZone.on('pointerdown', (ptr) => {
-      this._gamepadPointers.add(ptr.id);
-      drawAtk(true);
-      if (navigator.vibrate) navigator.vibrate(30);
-      const tx = this.player.x + this.player.facingX * 300;
-      const ty = this.player.y + this.player.facingY * 300;
-      this._doMeleeAttack(tx, ty);
-    });
-    atkZone.on('pointerup',  () => drawAtk(false));
-    atkZone.on('pointerout', () => drawAtk(false));
+    // 공격 버튼 범위 (전역 이벤트에서 사용)
+    this._atkBtn = { ax, ay, atkR, drawAtk };
 
     // 스틱 전역 이벤트
     this.input.on('pointermove', (ptr) => {
@@ -216,6 +226,10 @@ export default class GameScene extends Phaser.Scene {
         this._stick.pid    = null;
         this._updateStick(bx, by);
         this.player.setPadDirection(0, 0);
+      }
+      if (this._atkBtn && ptr.id === this._atkBtn.activePtr) {
+        this._atkBtn.activePtr = null;
+        this._atkBtn.drawAtk(false);
       }
     });
   }
