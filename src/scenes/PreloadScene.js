@@ -43,15 +43,15 @@ export default class PreloadScene extends Phaser.Scene {
     const ctx = canvas.getContext('2d');
 
     // 1) 어두운 잔디
-    this._drawGrassTile(ctx, 0,  '#1c3518', '#244020', '#162a12');
+    this._drawGrassTile(ctx, 0,  '#3a6828', '#4a8032', '#2e521e');
     // 2) 중간 잔디
-    this._drawGrassTile(ctx, 1,  '#26481e', '#306028', '#1e3818');
+    this._drawGrassTile(ctx, 1,  '#4a8030', '#5c9a3e', '#386224');
     // 3) 밝은 잔디
-    this._drawGrassTile(ctx, 2,  '#2d5424', '#3a6a2e', '#224018');
+    this._drawGrassTile(ctx, 2,  '#56963a', '#6cb048', '#42742c');
     // 4) 흙
-    this._drawDirtTile(ctx, 3,   '#8b6914', '#6b4f0e');
+    this._drawDirtTile(ctx, 3,   '#b8882a', '#8c6416');
     // 5) 어두운 흙
-    this._drawDirtTile(ctx, 4,   '#6b4f0e', '#4a3008');
+    this._drawDirtTile(ctx, 4,   '#8c6416', '#624208');
     // 6) 꽃 잔디
     this._drawFlowerTile(ctx, 5);
 
@@ -89,10 +89,10 @@ export default class PreloadScene extends Phaser.Scene {
   }
 
   _drawFlowerTile(ctx, col) {
-    this._drawGrassTile(ctx, col, '#26481e', '#306028', '#1e3818');
+    this._drawGrassTile(ctx, col, '#4a8030', '#5c9a3e', '#386224');
     const x = col * 32;
     [
-      [6,8,'#ffcc00'],[17,5,'#ff44aa'],[25,15,'#ff8800'],[10,23,'#ff4444'],[27,27,'#ccff44'],
+      [6,8,'#ffee00'],[17,5,'#ff55bb'],[25,15,'#ffaa00'],[10,23,'#ff5555'],[27,27,'#ddff44'],
     ].forEach(([bx, by, color]) => {
       ctx.fillStyle = color;
       ctx.fillRect(x+bx, by, 3, 3);
@@ -109,15 +109,15 @@ export default class PreloadScene extends Phaser.Scene {
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.beginPath(); ctx.ellipse(20, 49, 14, 5, 0, 0, Math.PI*2); ctx.fill();
     // 줄기
-    ctx.fillStyle = '#5c3d1a'; ctx.fillRect(16, 34, 8, 13);
-    ctx.fillStyle = '#4a2f10'; ctx.fillRect(16, 39, 3, 8);
+    ctx.fillStyle = '#7a5228'; ctx.fillRect(16, 34, 8, 13);
+    ctx.fillStyle = '#5e3e1a'; ctx.fillRect(16, 39, 3, 8);
     // 잎 (겹겹이)
-    ctx.fillStyle = '#183810'; ctx.beginPath(); ctx.arc(20, 26, 17, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#22500e'; ctx.beginPath(); ctx.arc(14, 22, 13, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#28600e'; ctx.beginPath(); ctx.arc(26, 20, 13, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#316c18'; ctx.beginPath(); ctx.arc(20, 17, 11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#2e6018'; ctx.beginPath(); ctx.arc(20, 26, 17, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#3c7c20'; ctx.beginPath(); ctx.arc(14, 22, 13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#469420'; ctx.beginPath(); ctx.arc(26, 20, 13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#52a828'; ctx.beginPath(); ctx.arc(20, 17, 11, 0, Math.PI*2); ctx.fill();
     // 하이라이트
-    ctx.fillStyle = '#3c7a22'; ctx.beginPath(); ctx.arc(17, 14, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#6ec038'; ctx.beginPath(); ctx.arc(17, 14, 5, 0, Math.PI*2); ctx.fill();
     this.textures.addCanvas('tree', canvas);
   }
 

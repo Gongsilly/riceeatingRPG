@@ -82,7 +82,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.011', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.012', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -556,9 +556,9 @@ export default class GameScene extends Phaser.Scene {
     try {
       const fx = this.cameras.main.postFX;
       // 비넷: 화면 외곽을 어둡게
-      fx.addVignette(0.5, 0.5, 0.75, 0.35);
+      fx.addVignette(0.5, 0.5, 0.60, 0.12);
       // 블룸: 밝은 오브젝트(파티클 등) 빛 번짐
-      fx.addBloom(0xffffff, 1, 1, 1, 0.18, 4);
+      fx.addBloom(0xffffff, 1, 1, 1, 0.35, 4);
     } catch (e) {
       // postFX 미지원 환경 무시
     }
