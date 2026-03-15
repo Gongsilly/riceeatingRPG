@@ -214,7 +214,7 @@ export default {
     // ── GET /api/portals ───────────────────────────────────────────────────
     if (pathname === '/api/portals') {
       const { results } = await env.DB.prepare('SELECT * FROM MAP_PORTALS').all<PortalRow>();
-      return Response.json(results, { headers: { 'Cache-Control': 'public, max-age=300' } });
+      return Response.json(results, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // ── POST /api/inventory/add ────────────────────────────────────────────
