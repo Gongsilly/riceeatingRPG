@@ -88,7 +88,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.003', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.004', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -343,7 +343,10 @@ export default class GameScene extends Phaser.Scene {
         const key = `${claw}:${snail}`;
         if (!this.hitSnails.has(key) && claw.checkHit(snail)) {
           this.hitSnails.add(key);
-          snail.takeDamage(Phaser.Math.Between(12, 25));
+          const isCritical = Math.random() < 0.20;
+          const base = Phaser.Math.Between(12, 25);
+          const dmg  = isCritical ? Math.floor(base * 1.5) : base;
+          snail.takeDamage(dmg, claw.nx, claw.ny, isCritical);
         }
       });
     });

@@ -9,6 +9,8 @@ export default class MagicClaw {
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const nx = dx / len;
     const ny = dy / len;
+    this.nx = nx;
+    this.ny = ny;
 
     // 수직 벡터 (두 줄 간격)
     const px = -ny * 5;

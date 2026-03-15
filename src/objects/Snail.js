@@ -5,6 +5,7 @@ export default class Snail {
     this.scene = scene;
     this.alive = true;
     this.speed = 40;
+    this._isKnockback = false;
 
     const data = MONSTER_DATA[type] ?? MONSTER_DATA['blue_snail'];
     this.monsterData = data;
@@ -21,6 +22,12 @@ export default class Snail {
     // HP 바
     this.hpBarBg = scene.add.rectangle(x, y - 20, 30, 4, 0x333333);
     this.hpBar   = scene.add.rectangle(x, y - 20, 30, 4, 0x00ff44);
+
+    // 이름 라벨
+    this._nameLabel = scene.add.text(x, y + 20, data.name, {
+      fontSize: '10px', color: '#dddddd',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(4);
 
     // AI 랜덤 이동
     this.targetX = x;
@@ -39,56 +46,89 @@ export default class Snail {
     this.targetY = this.sprite.y + Phaser.Math.Between(-120, 120);
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, kbDirX = 0, kbDirY = 0, isCritical = false) {
     if (!this.alive) return;
     this.hp -= amount;
 
-    const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 10, `-${amount}`, {
-      fontSize: '18px', fontStyle: 'bold',
-      color: '#ff3333', stroke: '#000', strokeThickness: 3,
-    }).setDepth(10);
+    // 데미지 숫자 (일반: 흰색, 크리티컬: 주황색)
+    const color  = isCritical ? '#ff8800' : '#ffffff';
+    const size   = isCritical ? '24px'    : '18px';
+    const label  = isCritical ? `${amount}!` : `${amount}`;
+    const offsetX = Phaser.Math.Between(-10, 10);
+
+    const txt = this.scene.add.text(
+      this.sprite.x + offsetX, this.sprite.y - 10, label,
+      { fontSize: size, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 3 },
+    ).setDepth(10).setOrigin(0.5);
 
     this.scene.tweens.add({
-      targets: txt, y: txt.y - 40, alpha: 0, duration: 900,
+      targets: txt, y: txt.y - 55, alpha: 0, duration: 900,
+      ease: 'Power2',
       onComplete: () => txt.destroy(),
     });
+
+    // 넉백
+    if ((kbDirX !== 0 || kbDirY !== 0) && !this._isKnockback) {
+      this._applyKnockback(kbDirX, kbDirY);
+    }
 
     if (this.hp <= 0) this.die();
   }
 
+  _applyKnockback(dx, dy) {
+    this._isKnockback = true;
+    this.sprite.body.setVelocity(dx * 300, dy * 300);
+    this.scene.time.delayedCall(200, () => {
+      if (!this.alive) return;
+      this._isKnockback = false;
+      this.sprite.body.setVelocity(0, 0);
+    });
+  }
+
   die() {
     this.alive = false;
-    const dx = this.sprite.x;
-    const dy = this.sprite.y;
-
-    this.sprite.destroy();
-    this.shell.destroy();
+    this.moveTimer.remove();
     this.hpBar.destroy();
     this.hpBarBg.destroy();
-    this.moveTimer.remove();
+    this._nameLabel.destroy();
 
-    // 경험치 지급
+    // 경험치 & 드롭은 즉시 처리 (좌표 고정)
+    const spawnX = this.sprite.x;
+    const spawnY = this.sprite.y;
     this.scene.player.gainExp(this.monsterData.exp);
-
-    // 드롭 테이블에 따라 아이템 스폰
     this.monsterData.drops.forEach(drop => {
       if (Math.random() < drop.chance) {
-        this.scene.spawnItem(dx, dy, drop.itemId);
+        this.scene.spawnItem(spawnX, spawnY, drop.itemId);
       }
+    });
+
+    // 사망 연출: 반투명 + 위로 떠오르며 소멸
+    this.scene.tweens.add({
+      targets: [this.sprite, this.shell],
+      y: '-=40',
+      alpha: 0,
+      duration: 500,
+      ease: 'Power1',
+      onComplete: () => {
+        this.sprite.destroy();
+        this.shell.destroy();
+      },
     });
   }
 
   update() {
     if (!this.alive) return;
 
-    const dx   = this.targetX - this.sprite.x;
-    const dy   = this.targetY - this.sprite.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (!this._isKnockback) {
+      const dx   = this.targetX - this.sprite.x;
+      const dy   = this.targetY - this.sprite.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist > 5) {
-      this.sprite.body.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
-    } else {
-      this.sprite.body.setVelocity(0, 0);
+      if (dist > 5) {
+        this.sprite.body.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
+      } else {
+        this.sprite.body.setVelocity(0, 0);
+      }
     }
 
     this.shell.x = this.sprite.x - 4;
@@ -100,5 +140,8 @@ export default class Snail {
     this.hpBar.x   = this.sprite.x - 15 + (30 * ratio) / 2;
     this.hpBar.y   = this.sprite.y - 20;
     this.hpBar.width = 30 * ratio;
+
+    this._nameLabel.x = this.sprite.x;
+    this._nameLabel.y = this.sprite.y + 20;
   }
 }

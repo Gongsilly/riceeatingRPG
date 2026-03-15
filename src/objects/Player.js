@@ -96,7 +96,7 @@ export default class Player {
       repeat: -1,
     });
 
-    this.scene.time.delayedCall(1500, () => {
+    this.scene.time.delayedCall(1000, () => {
       this.isInvincible = false;
       if (this._blinkTween) { this._blinkTween.stop(); this._blinkTween = null; }
       this.sprite.setAlpha(1);
