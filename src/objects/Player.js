@@ -1,6 +1,13 @@
+import { EXP_TABLE } from '../constants/gameData';
+
 export default class Player {
   constructor(scene, x, y) {
     this.scene = scene;
+
+    // ── 레벨 / 경험치 ──
+    this.level      = 1;
+    this.currentExp = 0;
+    this.maxExp     = EXP_TABLE[1];
 
     // 노란 사각형 캐릭터
     this.sprite = scene.add.rectangle(x, y, 32, 32, 0xffdd00);
@@ -109,6 +116,31 @@ export default class Player {
     }
 
     this._drawFacing();
+  }
+
+  gainExp(amount) {
+    if (this.level >= 20) return;
+    this.currentExp += amount;
+    while (this.currentExp >= this.maxExp && this.level < 20) {
+      this.currentExp -= this.maxExp;
+      this.level++;
+      this.maxExp = EXP_TABLE[this.level] ?? this.maxExp;
+      this._onLevelUp();
+    }
+  }
+
+  _onLevelUp() {
+    // 레벨업 이펙트 텍스트
+    const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 40, `LEVEL UP! Lv.${this.level}`, {
+      fontSize: '20px', fontStyle: 'bold',
+      color: '#ffff00', stroke: '#000', strokeThickness: 4,
+    }).setDepth(20).setOrigin(0.5);
+
+    this.scene.tweens.add({
+      targets: txt,
+      y: txt.y - 50, alpha: 0, duration: 1500,
+      onComplete: () => txt.destroy(),
+    });
   }
 
   get x() { return this.sprite.x; }

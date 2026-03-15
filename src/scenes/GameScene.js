@@ -37,13 +37,21 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
-    // ── 달팽이 30마리 스폰 ──
-    for (let i = 0; i < 30; i++) {
-      this.snails.push(new Snail(this,
-        Phaser.Math.Between(200, MAP_W - 200),
-        Phaser.Math.Between(200, MAP_H - 200),
-      ));
-    }
+    // ── 몬스터 스폰 (3종) ──
+    const spawnConfig = [
+      { type: 'green_snail', count: 15 },
+      { type: 'blue_snail',  count: 10 },
+      { type: 'spore',       count: 8  },
+    ];
+    spawnConfig.forEach(({ type, count }) => {
+      for (let i = 0; i < count; i++) {
+        this.snails.push(new Snail(this,
+          Phaser.Math.Between(200, MAP_W - 200),
+          Phaser.Math.Between(200, MAP_H - 200),
+          type,
+        ));
+      }
+    });
 
     // 우클릭 컨텍스트 메뉴 막기
     this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -70,7 +78,7 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // ── UI 텍스트 ──
+    // ── UI 텍스트 (좌상단) ──
     this.uiText = this.add.text(12, 12, '', {
       fontSize: '13px',
       color: '#ffffff',
@@ -78,8 +86,37 @@ export default class GameScene extends Phaser.Scene {
       padding: { x: 6, y: 4 },
     }).setScrollFactor(0).setDepth(50);
 
+    // ── EXP 바 (하단 중앙) ──
+    this._buildExpBar();
+
     // ── 가상 게임패드 ──
     this._buildGamepad();
+  }
+
+  _buildExpBar() {
+    const W   = this.scale.width;
+    const H   = this.scale.height;
+    const bw  = Math.min(W * 0.55, 340);
+    const bh  = 14;
+    const bx  = W / 2;
+    const by  = H - 18;
+
+    // 배경
+    this._expBarBg = this.add.rectangle(bx, by, bw, bh, 0x000000, 0.6)
+      .setScrollFactor(0).setDepth(55).setOrigin(0.5);
+    this._expBarBg.setStrokeStyle(1, 0x4455aa, 0.8);
+
+    // 채움 바
+    this._expBarFill = this.add.rectangle(bx - bw / 2, by, 0, bh - 2, 0x44aaff, 0.9)
+      .setScrollFactor(0).setDepth(56).setOrigin(0, 0.5);
+
+    // 텍스트
+    this._expText = this.add.text(bx, by, '', {
+      fontSize: '10px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(57);
+
+    this._expBarWidth = bw;
+    this._expBarX     = bx - bw / 2;
   }
 
   _buildGamepad() {
@@ -202,8 +239,8 @@ export default class GameScene extends Phaser.Scene {
     this._stickThumb.strokeCircle(tx, ty, 26);
   }
 
-  spawnItem(x, y) {
-    this.items.push(new Item(this, x, y));
+  spawnItem(x, y, itemId = 'snail_shell') {
+    this.items.push(new Item(this, x, y, itemId));
   }
 
   update(time, delta) {
@@ -231,12 +268,19 @@ export default class GameScene extends Phaser.Scene {
     this.items = this.items.filter(i => !i.picked);
     this.items.forEach(i => i.updateTooltipPos());
 
-    // UI 업데이트
+    // ── UI 업데이트 ──
     const alive = this.snails.filter(s => s.alive).length;
+    const p     = this.player;
     this.uiText.setText(
-      `[RiceEating RPG v0.1]\n` +
-      `🐌 달팽이: ${alive}마리  🎒 인벤토리: ${this.inventory.length}칸\n` +
-      `탭: 이동  |  꾹 누르기 / 우클릭: 매직클로`
+      `v0.000.002\n` +
+      `🐌 몬스터: ${alive}마리  🎒 인벤토리: ${this.inventory.length}칸\n` +
+      `탭: 이동  |  우클릭 / 공격버튼: 매직클로`
     );
+
+    // ── EXP 바 업데이트 ──
+    const ratio = p.level >= 20 ? 1 : p.currentExp / p.maxExp;
+    this._expBarFill.width = this._expBarWidth * ratio;
+    const pct = p.level >= 20 ? 'MAX' : `${Math.floor(ratio * 100)}%`;
+    this._expText.setText(`Lv.${p.level}  ${p.currentExp} / ${p.maxExp} EXP  (${pct})`);
   }
 }
