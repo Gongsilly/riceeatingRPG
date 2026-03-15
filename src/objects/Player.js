@@ -6,19 +6,52 @@ export default class Player {
     this.sprite = scene.add.rectangle(x, y, 32, 32, 0xffdd00);
     scene.physics.add.existing(this.sprite);
     this.sprite.body.setCollideWorldBounds(false);
+    this.sprite.setDepth(5);
+
+    // 방향 표시 삼각형 (캐릭터 앞쪽)
+    this._dirGfx = scene.add.graphics().setDepth(6);
 
     this.speed = 220;
     this.targetX = x;
     this.targetY = y;
     this.moving = false;
 
-    // 십자키용 방향 벡터
+    // 아날로그 스틱 방향 벡터
     this.padDx = 0;
     this.padDy = 0;
 
-    // 마지막 이동 방향 (스킬 발사용)
+    // 바라보는 방향 (공격 발사용)
     this.facingX = 1;
     this.facingY = 0;
+  }
+
+  _drawFacing() {
+    const g = this._dirGfx;
+    g.clear();
+
+    const cx = this.sprite.x;
+    const cy = this.sprite.y;
+    const dist = 22;        // 캐릭터 중심에서 앞쪽 거리
+    const hw   = 7;         // 삼각형 너비 절반
+    const len  = 10;        // 삼각형 길이
+
+    // 앞 방향 벡터
+    const fx = this.facingX;
+    const fy = this.facingY;
+    // 수직 벡터
+    const px = -fy;
+    const py =  fx;
+
+    // 삼각형 꼭짓점 3개
+    const tip = { x: cx + fx * (dist + len), y: cy + fy * (dist + len) };
+    const l   = { x: cx + fx * dist + px * hw, y: cy + fy * dist + py * hw };
+    const r   = { x: cx + fx * dist - px * hw, y: cy + fy * dist - py * hw };
+
+    g.fillStyle(0xffffff, 0.9);
+    g.fillTriangle(tip.x, tip.y, l.x, l.y, r.x, r.y);
+
+    g.lineStyle(1.5, 0xffdd00, 0.8);
+    g.strokeTriangle(tip.x, tip.y, l.x, l.y, r.x, r.y);
   }
 
   moveTo(x, y) {
@@ -42,13 +75,14 @@ export default class Player {
   }
 
   update() {
-    // 십자키 입력 우선
+    // 아날로그 스틱 입력 우선
     if (this.padDx !== 0 || this.padDy !== 0) {
       const len = Math.sqrt(this.padDx * this.padDx + this.padDy * this.padDy);
       this.sprite.body.setVelocity(
         (this.padDx / len) * this.speed,
         (this.padDy / len) * this.speed,
       );
+      this._drawFacing();
       return;
     }
 
@@ -73,6 +107,8 @@ export default class Player {
       this.facingX = dx / dist;
       this.facingY = dy / dist;
     }
+
+    this._drawFacing();
   }
 
   get x() { return this.sprite.x; }
