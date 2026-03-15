@@ -53,8 +53,10 @@ export default class GameScene extends Phaser.Scene {
 
     // ── 월드 탭 → 이동 / PC 우클릭 → 매직클로 ──
     this.input.on('pointerup', (ptr) => {
-      // 게임패드 터치였으면 이동 무시
-      if (this._gamepadPointers.has(ptr.id)) return;
+      // 체크 먼저, 삭제는 나중 (zone pointerup보다 늦게 실행되는 문제 방지)
+      const wasGamepad = this._gamepadPointers.has(ptr.id);
+      this._gamepadPointers.delete(ptr.id);
+      if (wasGamepad) return;
       if (!ptr.rightButtonReleased()) {
         this.player.moveTo(ptr.worldX, ptr.worldY);
       }
@@ -142,8 +144,9 @@ export default class GameScene extends Phaser.Scene {
       this.claws.push(claw);
       this.hitSnails = new Set();
     });
-    atkZone.on('pointerup',  (ptr) => { this._gamepadPointers.delete(ptr.id); drawAtk(false); });
-    atkZone.on('pointerout', (ptr) => { this._gamepadPointers.delete(ptr.id); drawAtk(false); });
+    atkZone.on('pointerup',  () => drawAtk(false));
+    atkZone.on('pointerout', () => drawAtk(false));
+    this._drawAtk = drawAtk;
 
     // ── 전역 pointermove / pointerup → 스틱 갱신 ──
     this.input.on('pointermove', (ptr) => {
@@ -153,7 +156,6 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.input.on('pointerup', (ptr) => {
-      this._gamepadPointers.delete(ptr.id);
       if (ptr.id === this._stick.pid) {
         this._stick.active = false;
         this._stick.pid = null;
