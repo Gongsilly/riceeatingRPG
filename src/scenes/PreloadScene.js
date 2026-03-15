@@ -5,17 +5,21 @@ export default class PreloadScene extends Phaser.Scene {
   constructor() { super('PreloadScene'); }
 
   preload() {
+    // API 실패해도 게임이 멈추지 않도록 에러 무시
+    this.load.on('loaderror', () => {});
+
     // Production: Pages Function → Cloudflare D1
     // Local dev:  Vite mock middleware → JSON 파일
+    // Fallback:   API 실패 시 DatabaseService 내 번들 JSON 사용
     this.load.json('monsters_data', '/api/monsters');
     this.load.json('items_data',    '/api/items');
   }
 
   create() {
-    // API 응답을 DatabaseService 메모리 캐시에 주입
+    // API 응답이 있으면 캐시 업데이트, 없으면 fallback JSON 유지
     db.seedFromPreload(
-      this.cache.json.get('monsters_data'),
-      this.cache.json.get('items_data'),
+      this.cache.json.get('monsters_data') ?? null,
+      this.cache.json.get('items_data')    ?? null,
     );
 
     this._genTileset();
