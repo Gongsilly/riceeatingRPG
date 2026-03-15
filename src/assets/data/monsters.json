@@ -1,0 +1,41 @@
+[
+  {
+    "id": "green_snail",
+    "name": "달팽이",
+    "hp": 8,
+    "exp": 3,
+    "damage": 3,
+    "bodyColor": 4508740,
+    "shellColor": 2263074,
+    "drops": [
+      { "itemId": "snail_shell", "chance": 0.40 },
+      { "itemId": "apple",       "chance": 0.10 }
+    ]
+  },
+  {
+    "id": "blue_snail",
+    "name": "파란 달팽이",
+    "hp": 15,
+    "exp": 5,
+    "damage": 5,
+    "bodyColor": 4491519,
+    "shellColor": 2250188,
+    "drops": [
+      { "itemId": "blue_shell", "chance": 0.35 },
+      { "itemId": "red_potion", "chance": 0.05 }
+    ]
+  },
+  {
+    "id": "spore",
+    "name": "스포아",
+    "hp": 20,
+    "exp": 6,
+    "damage": 7,
+    "bodyColor": 11158732,
+    "shellColor": 7807641,
+    "drops": [
+      { "itemId": "spore_drop", "chance": 0.45 },
+      { "itemId": "orange",     "chance": 0.10 }
+    ]
+  }
+]

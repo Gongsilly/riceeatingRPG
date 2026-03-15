@@ -1,0 +1,44 @@
+[
+  {
+    "id": "snail_shell",
+    "name": "달팽이 껍질",
+    "description": "초록 달팽이의 껍질",
+    "bodyColor": 9139029,
+    "gemColor": 8978312
+  },
+  {
+    "id": "apple",
+    "name": "사과",
+    "description": "싱싱한 빨간 사과",
+    "bodyColor": 14492194,
+    "gemColor": 16737894
+  },
+  {
+    "id": "blue_shell",
+    "name": "파란 껍질",
+    "description": "파란 달팽이의 껍질",
+    "bodyColor": 2250188,
+    "gemColor": 6728447
+  },
+  {
+    "id": "red_potion",
+    "name": "빨간 포션",
+    "description": "HP를 회복하는 포션",
+    "bodyColor": 13373713,
+    "gemColor": 16729156
+  },
+  {
+    "id": "spore_drop",
+    "name": "포자",
+    "description": "스포아의 포자",
+    "bodyColor": 7816328,
+    "gemColor": 13395660
+  },
+  {
+    "id": "orange",
+    "name": "오렌지",
+    "description": "새콤달콤한 오렌지",
+    "bodyColor": 14509568,
+    "gemColor": 16755251
+  }
+]

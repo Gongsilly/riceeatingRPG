@@ -1,11 +1,11 @@
-import { ITEM_DATA } from '../constants/gameData';
+import { ItemRepository } from '../repositories/ItemRepository';
 
 export default class Item {
   constructor(scene, x, y, itemId = 'snail_shell') {
     this.scene  = scene;
     this.picked = false;
 
-    const data  = ITEM_DATA[itemId] ?? ITEM_DATA['snail_shell'];
+    const data  = ItemRepository.getById(itemId);
     this.data   = data;
 
     // 아이템 스프라이트

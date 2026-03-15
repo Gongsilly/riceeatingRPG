@@ -1,4 +1,4 @@
-import { MONSTER_DATA } from '../constants/gameData';
+import { MonsterRepository } from '../repositories/MonsterRepository';
 
 export default class Snail {
   constructor(scene, x, y, type = 'blue_snail') {
@@ -7,7 +7,7 @@ export default class Snail {
     this.speed = 40;
     this._isKnockback = false;
 
-    const data = MONSTER_DATA[type] ?? MONSTER_DATA['blue_snail'];
+    const data = MonsterRepository.getById(type);
     this.monsterData = data;
     this.hp    = data.hp;
     this.maxHp = data.hp;
