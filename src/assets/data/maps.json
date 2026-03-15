@@ -2,5 +2,6 @@
   { "map_id": 100000000, "name": "암허스트",      "bg_key": "town_amherst", "is_town": 1 },
   { "map_id": 100000001, "name": "메이플 로드 1", "bg_key": "maple_road_1", "is_town": 0 },
   { "map_id": 100000002, "name": "메이플 로드 2", "bg_key": "maple_road_2", "is_town": 0 },
-  { "map_id": 100000003, "name": "사우스페리",    "bg_key": "south_perry",  "is_town": 1 }
+  { "map_id": 100000003, "name": "사우스페리",    "bg_key": "south_perry",  "is_town": 1 },
+  { "map_id": 200000000, "name": "투기장",        "bg_key": "arena",        "is_town": 0, "map_w": 1600, "map_h": 1200 }
 ]

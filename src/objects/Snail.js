@@ -15,7 +15,7 @@ export default class Snail {
     // 스프라이트
     this.sprite = scene.physics.add.sprite(x, y, type, 0);
     this.sprite.setDepth(4);
-    this.sprite.body.setCollideWorldBounds(false);
+    this.sprite.body.setCollideWorldBounds(true);
     this.sprite.play(`${type}_walk`);
 
     // 그림자
@@ -46,8 +46,10 @@ export default class Snail {
 
   pickNewTarget() {
     if (!this.alive) return;
-    this.targetX = this.sprite.x + Phaser.Math.Between(-120, 120);
-    this.targetY = this.sprite.y + Phaser.Math.Between(-120, 120);
+    const mapW = this.scene._mapW ?? 3200;
+    const mapH = this.scene._mapH ?? 2400;
+    this.targetX = Phaser.Math.Clamp(this.sprite.x + Phaser.Math.Between(-120, 120), 0, mapW);
+    this.targetY = Phaser.Math.Clamp(this.sprite.y + Phaser.Math.Between(-120, 120), 0, mapH);
   }
 
   takeDamage(amount, kbDirX = 0, kbDirY = 0, isCritical = false) {

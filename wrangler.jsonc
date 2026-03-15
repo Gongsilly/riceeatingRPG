@@ -14,5 +14,13 @@
       "database_name": "riceeating-db",
       "database_id": "f4121674-0701-44ca-b55b-710d330f020c"
     }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ARENA", "class_name": "ArenaRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ArenaRoom"] }
   ]
 }

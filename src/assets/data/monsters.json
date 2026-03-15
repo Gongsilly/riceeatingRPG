@@ -8,8 +8,9 @@
     "bodyColor": 4508740,
     "shellColor": 2263074,
     "drops": [
-      { "itemId": "snail_shell", "chance": 0.40 },
-      { "itemId": "apple",       "chance": 0.10 }
+      { "itemId": "snail_shell",  "chance": 0.40 },
+      { "itemId": "apple",        "chance": 0.10 },
+      { "itemId": "old_sword",    "chance": 0.02 }
     ]
   },
   {
@@ -21,8 +22,10 @@
     "bodyColor": 4491519,
     "shellColor": 2250188,
     "drops": [
-      { "itemId": "blue_shell", "chance": 0.35 },
-      { "itemId": "red_potion", "chance": 0.05 }
+      { "itemId": "blue_shell",     "chance": 0.35 },
+      { "itemId": "red_potion",     "chance": 0.05 },
+      { "itemId": "blue_potion",    "chance": 0.05 },
+      { "itemId": "leather_gloves", "chance": 0.03 }
     ]
   },
   {
@@ -34,8 +37,10 @@
     "bodyColor": 11158732,
     "shellColor": 7807641,
     "drops": [
-      { "itemId": "spore_drop", "chance": 0.45 },
-      { "itemId": "orange",     "chance": 0.10 }
+      { "itemId": "spore_drop",    "chance": 0.45 },
+      { "itemId": "orange",        "chance": 0.10 },
+      { "itemId": "leather_armor", "chance": 0.03 },
+      { "itemId": "wooden_staff",  "chance": 0.02 }
     ]
   }
 ]

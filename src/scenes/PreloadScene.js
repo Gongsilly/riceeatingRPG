@@ -33,7 +33,7 @@ export default class PreloadScene extends Phaser.Scene {
     this._genMonsterSheet('blue_snail',  '#4488ff', '#2255cc', '#0033aa');
     this._genSporeSheet();
     this._genSpark();
-    this.scene.start('GameScene');
+    this.scene.start('LoginScene');
   }
 
   // ── 유틸 ─────────────────────────────────────────────────────────────────────

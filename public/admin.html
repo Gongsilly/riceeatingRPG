@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel — Rice Eating RPG</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #161b22;
+      --surface2: #21262d;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --accent:   #388bfd;
+      --green:    #3fb950;
+      --red:      #f85149;
+      --yellow:   #d29922;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Login ── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 40px 36px;
+      width: 360px;
+    }
+    .login-box h1 {
+      font-size: 20px;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .login-box p {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 28px;
+    }
+    .login-box input {
+      display: block;
+      width: 100%;
+      padding: 9px 12px;
+      margin-bottom: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+    .login-box input:focus { border-color: var(--accent); }
+    .login-box button {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .login-box button:hover { filter: brightness(1.15); }
+    #login-error {
+      margin-top: 12px;
+      color: var(--red);
+      font-size: 12px;
+      text-align: center;
+      min-height: 16px;
+    }
+
+    /* ── Panel ── */
+    #panel { display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 52px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    header .badge {
+      font-size: 10px;
+      background: var(--accent);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .header-right span { color: var(--muted); font-size: 12px; }
+    .btn-sm {
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-sm:hover { background: var(--border); }
+    .btn-danger { border-color: var(--red); color: var(--red); }
+    .btn-danger:hover { background: #2a0f0f; }
+
+    /* ── Tabs ── */
+    nav.tabs {
+      display: flex;
+      padding: 0 20px;
+      gap: 2px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    nav.tabs::-webkit-scrollbar { height: 3px; }
+    nav.tabs::-webkit-scrollbar-thumb { background: var(--border); }
+    .tab-btn {
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .toolbar-left { display: flex; align-items: center; gap: 12px; }
+    .table-label { font-weight: 700; font-size: 14px; }
+    .row-count { color: var(--muted); font-size: 12px; }
+    .btn-icon {
+      padding: 5px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-icon:hover { background: var(--border); }
+
+    /* ── Table ── */
+    .table-wrapper {
+      flex: 1;
+      overflow: auto;
+    }
+    .table-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
+    .table-wrapper::-webkit-scrollbar-track { background: var(--bg); }
+    .table-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    table {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+    }
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--surface2);
+    }
+    th {
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    th.pk { color: var(--yellow); }
+
+    td {
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    tr:hover td { background: var(--surface); }
+    tr.editing td { background: #161d2e; }
+
+    td.pk-cell { color: var(--yellow); font-family: monospace; }
+    td.readonly { color: var(--muted); }
+
+    td input {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 3px 7px;
+      font-size: 12px;
+      width: 100%;
+      min-width: 60px;
+      max-width: 180px;
+      outline: none;
+    }
+    td.actions { white-space: nowrap; }
+
+    .btn-edit {
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .btn-edit:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-save {
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid var(--green);
+      background: none;
+      color: var(--green);
+      cursor: pointer;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+    .btn-save:hover { background: #0d2a14; }
+    .btn-cancel {
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .btn-cancel:hover { background: var(--surface2); }
+
+    /* ── Loading / Empty ── */
+    .state-row td {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+    #toast.ok  { background: #1a3a1f; border: 1px solid var(--green); color: var(--green); }
+    #toast.err { background: #2a1010; border: 1px solid var(--red);   color: var(--red);   }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ── Login ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>🍚 Rice Eating RPG</h1>
+    <p>Admin Panel</p>
+    <input id="l-id" type="text"     placeholder="관리자 ID"  autofocus>
+    <input id="l-pw" type="password" placeholder="비밀번호">
+    <button onclick="doLogin()">로그인</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ── Admin Panel ── -->
+<div id="panel" class="hidden">
+  <header>
+    <div style="display:flex;align-items:center;gap:8px">
+      <h1>🍚 Rice Eating RPG</h1>
+      <span class="badge">Admin</span>
+    </div>
+    <div class="header-right">
+      <span id="admin-name"></span>
+      <button class="btn-sm btn-danger" onclick="doLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="table-label" id="tbl-label"></span>
+      <span class="row-count"  id="tbl-count"></span>
+    </div>
+    <button class="btn-icon" onclick="loadTable()">🔄 새로고침</button>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead id="tbl-head"></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 설정 ────────────────────────────────────────────────────────────────────
+const TABLES = [
+  {
+    key: 'users', label: 'USERS', pk: 'user_id',
+    cols: [
+      { k: 'user_id',    l: 'ID',      edit: false },
+      { k: 'username',   l: '아이디',   edit: true  },
+      { k: 'created_at', l: '가입일',   edit: false },
+    ],
+  },
+  {
+    key: 'character_stats', label: 'CHARACTER', pk: 'user_id',
+    cols: [
+      { k: 'user_id',       l: 'UID',  edit: false },
+      { k: 'current_level', l: 'Lv',   edit: true, t: 'number' },
+      { k: 'current_exp',   l: 'EXP',  edit: true, t: 'number' },
+      { k: 'hp',            l: 'HP',   edit: true, t: 'number' },
+      { k: 'mp',            l: 'MP',   edit: true, t: 'number' },
+      { k: 'str',           l: 'STR',  edit: true, t: 'number' },
+      { k: 'dex',           l: 'DEX',  edit: true, t: 'number' },
+      { k: 'int_stat',      l: 'INT',  edit: true, t: 'number' },
+      { k: 'luk',           l: 'LUK',  edit: true, t: 'number' },
+      { k: 'map_id',        l: 'MAP',  edit: true, t: 'number' },
+      { k: 'pos_x',         l: 'X',    edit: true, t: 'number' },
+      { k: 'pos_y',         l: 'Y',    edit: true, t: 'number' },
+    ],
+  },
+  {
+    key: 'item_master', label: 'ITEMS', pk: 'item_id',
+    cols: [
+      { k: 'item_id',     l: 'ID',      edit: false },
+      { k: 'code',        l: 'Code',    edit: true  },
+      { k: 'name',        l: '이름',    edit: true  },
+      { k: 'description', l: '설명',    edit: true  },
+      { k: 'category',    l: 'Cat',     edit: true  },
+      { k: 'sub_type',    l: 'Sub',     edit: true  },
+      { k: 'req_lv',      l: 'reqLv',   edit: true, t: 'number' },
+      { k: 'sell_price',  l: '판매가',  edit: true, t: 'number' },
+      { k: 'max_stack',   l: 'Stack',   edit: true, t: 'number' },
+      { k: 'base_atk',    l: 'ATK',     edit: true, t: 'number' },
+      { k: 'base_str',    l: 'STR',     edit: true, t: 'number' },
+      { k: 'base_dex',    l: 'DEX',     edit: true, t: 'number' },
+      { k: 'base_int',    l: 'INT',     edit: true, t: 'number' },
+      { k: 'base_luk',    l: 'LUK',     edit: true, t: 'number' },
+      { k: 'base_def',    l: 'DEF',     edit: true, t: 'number' },
+      { k: 'max_upgrade', l: 'Upgrade', edit: true, t: 'number' },
+      { k: 'hp_recover',  l: 'HP회복',  edit: true, t: 'number' },
+      { k: 'mp_recover',  l: 'MP회복',  edit: true, t: 'number' },
+    ],
+  },
+  {
+    key: 'monsters', label: 'MONSTERS', pk: 'id',
+    cols: [
+      { k: 'id',          l: 'ID',     edit: false },
+      { k: 'name',        l: '이름',   edit: true  },
+      { k: 'hp',          l: 'HP',     edit: true, t: 'number' },
+      { k: 'exp',         l: 'EXP',    edit: true, t: 'number' },
+      { k: 'damage',      l: 'DMG',    edit: true, t: 'number' },
+      { k: 'body_color',  l: 'BodyColor', edit: true, t: 'number' },
+      { k: 'shell_color', l: 'ShellColor', edit: true, t: 'number' },
+    ],
+  },
+  {
+    key: 'maps', label: 'MAPS', pk: 'map_id',
+    cols: [
+      { k: 'map_id',  l: 'ID',    edit: false },
+      { k: 'name',    l: '이름',  edit: true  },
+      { k: 'bg_key',  l: 'BG',    edit: true  },
+      { k: 'is_town', l: '마을',  edit: true, t: 'number' },
+    ],
+  },
+  {
+    key: 'portals', label: 'PORTALS', pk: 'portal_id',
+    cols: [
+      { k: 'portal_id',   l: 'ID',       edit: false },
+      { k: 'from_map_id', l: 'From',     edit: true, t: 'number' },
+      { k: 'to_map_id',   l: 'To',       edit: true, t: 'number' },
+      { k: 'pos_x',       l: 'PosX',     edit: true, t: 'number' },
+      { k: 'pos_y',       l: 'PosY',     edit: true, t: 'number' },
+      { k: 'target_x',    l: 'TargetX',  edit: true, t: 'number' },
+      { k: 'target_y',    l: 'TargetY',  edit: true, t: 'number' },
+    ],
+  },
+  {
+    key: 'inventory', label: 'INVENTORY', pk: 'inv_id',
+    cols: [
+      { k: 'inv_id',   l: 'ID',      edit: false },
+      { k: 'user_id',  l: 'User',    edit: false },
+      { k: 'item_id',  l: 'Item',    edit: true, t: 'number' },
+      { k: 'quantity', l: '수량',    edit: true, t: 'number' },
+      { k: 'equipped', l: '장착',    edit: true, t: 'number' },
+    ],
+  },
+];
+
+// ── 상태 ────────────────────────────────────────────────────────────────────
+let token       = sessionStorage.getItem('admin_token') || '';
+let currentKey  = 'users';
+let currentRows = [];
+
+// ── 초기화 ──────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('l-id').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('l-pw').focus(); });
+  document.getElementById('l-pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  if (token) showPanel();
+
+  buildTabs();
+});
+
+function buildTabs() {
+  const nav = document.getElementById('tabs');
+  TABLES.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (t.key === currentKey ? ' active' : '');
+    btn.textContent = t.label;
+    btn.onclick = () => switchTab(t.key);
+    nav.appendChild(btn);
+  });
+}
+
+// ── 로그인 ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const id = document.getElementById('l-id').value.trim();
+  const pw = document.getElementById('l-pw').value;
+  document.getElementById('login-error').textContent = '';
+
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: id, password: pw }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('login-error').textContent = data.error || '로그인 실패';
+      return;
+    }
+    token = data.token;
+    sessionStorage.setItem('admin_token', token);
+    document.getElementById('admin-name').textContent = id;
+    showPanel();
+  } catch {
+    document.getElementById('login-error').textContent = '서버 오류';
+  }
+}
+
+function doLogout() {
+  token = '';
+  sessionStorage.removeItem('admin_token');
+  document.getElementById('panel').classList.add('hidden');
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('l-id').value = '';
+  document.getElementById('l-pw').value = '';
+}
+
+function showPanel() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('panel').classList.remove('hidden');
+  loadTable();
+}
+
+// ── 탭 전환 ─────────────────────────────────────────────────────────────────
+function switchTab(key) {
+  currentKey = key;
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', TABLES[i].key === key);
+  });
+  loadTable();
+}
+
+// ── 데이터 로드 ──────────────────────────────────────────────────────────────
+async function loadTable() {
+  const cfg = TABLES.find(t => t.key === currentKey);
+  document.getElementById('tbl-label').textContent = cfg.label;
+  document.getElementById('tbl-count').textContent = '';
+  renderLoading(cfg);
+
+  try {
+    const res = await fetch(`/api/admin/data/${currentKey}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (res.status === 401) { doLogout(); return; }
+    if (!res.ok) throw new Error('fetch failed');
+    currentRows = await res.json();
+    document.getElementById('tbl-count').textContent = `${currentRows.length}행`;
+    renderTable(cfg, currentRows);
+  } catch {
+    renderError(cfg);
+  }
+}
+
+// ── 테이블 렌더 ──────────────────────────────────────────────────────────────
+function renderLoading(cfg) {
+  renderHead(cfg);
+  document.getElementById('tbl-body').innerHTML =
+    `<tr class="state-row"><td colspan="${cfg.cols.length + 1}">로딩 중...</td></tr>`;
+}
+
+function renderError(cfg) {
+  document.getElementById('tbl-body').innerHTML =
+    `<tr class="state-row"><td colspan="${cfg.cols.length + 1}" style="color:var(--red)">데이터 로드 실패</td></tr>`;
+}
+
+function renderHead(cfg) {
+  const head = document.getElementById('tbl-head');
+  head.innerHTML = '<tr>' +
+    cfg.cols.map(c => `<th class="${c.k === cfg.pk ? 'pk' : ''}">${c.l}</th>`).join('') +
+    '<th>액션</th></tr>';
+}
+
+function renderTable(cfg, rows) {
+  renderHead(cfg);
+  const tbody = document.getElementById('tbl-body');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr class="state-row"><td colspan="${cfg.cols.length + 1}">데이터 없음</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = '';
+  rows.forEach(row => tbody.appendChild(buildRow(cfg, row)));
+}
+
+function buildRow(cfg, row) {
+  const tr = document.createElement('tr');
+  tr.dataset.pk = row[cfg.pk];
+
+  cfg.cols.forEach(col => {
+    const td = document.createElement('td');
+    const val = row[col.k] ?? '';
+    if (!col.edit || col.k === cfg.pk) {
+      td.className = col.k === cfg.pk ? 'pk-cell' : 'readonly';
+      td.textContent = val;
+    } else {
+      td.textContent = val;
+    }
+    td.dataset.key = col.k;
+    td.dataset.orig = val;
+    tr.appendChild(td);
+  });
+
+  // 액션 셀
+  const action = document.createElement('td');
+  action.className = 'actions';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn-edit';
+  editBtn.textContent = '편집';
+  editBtn.onclick = () => startEdit(tr, cfg, row);
+  action.appendChild(editBtn);
+  tr.appendChild(action);
+
+  return tr;
+}
+
+// ── 인라인 편집 ──────────────────────────────────────────────────────────────
+function startEdit(tr, cfg, row) {
+  tr.classList.add('editing');
+  cfg.cols.forEach(col => {
+    if (!col.edit || col.k === cfg.pk) return;
+    const td = tr.querySelector(`td[data-key="${col.k}"]`);
+    const val = td.dataset.orig;
+    const input = document.createElement('input');
+    input.type  = col.t === 'number' ? 'number' : 'text';
+    input.value = val;
+    input.style.width = Math.max(60, Math.min(180, String(val).length * 8 + 20)) + 'px';
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  saveRow(tr, cfg, row);
+      if (e.key === 'Escape') cancelEdit(tr, cfg, row);
+    });
+  });
+
+  const action = tr.querySelector('.actions');
+  action.innerHTML = '';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn-save';
+  saveBtn.textContent = '저장';
+  saveBtn.onclick = () => saveRow(tr, cfg, row);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn-cancel';
+  cancelBtn.textContent = '취소';
+  cancelBtn.onclick = () => cancelEdit(tr, cfg, row);
+
+  action.appendChild(saveBtn);
+  action.appendChild(cancelBtn);
+}
+
+function cancelEdit(tr, cfg, row) {
+  tr.classList.remove('editing');
+  // 원래 row 로 재렌더
+  const newTr = buildRow(cfg, row);
+  tr.replaceWith(newTr);
+}
+
+async function saveRow(tr, cfg, row) {
+  const updates = {};
+  cfg.cols.forEach(col => {
+    if (!col.edit || col.k === cfg.pk) return;
+    const td  = tr.querySelector(`td[data-key="${col.k}"]`);
+    const inp = td.querySelector('input');
+    if (!inp) return;
+    const val = col.t === 'number' ? Number(inp.value) : inp.value;
+    if (String(val) !== td.dataset.orig) updates[col.k] = val;
+  });
+
+  if (Object.keys(updates).length === 0) {
+    cancelEdit(tr, cfg, row);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/admin/data/${currentKey}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ pk_value: row[cfg.pk], updates }),
+    });
+    if (!res.ok) throw new Error();
+
+    // 로컬 row 갱신
+    const updatedRow = { ...row, ...updates };
+    const idx = currentRows.findIndex(r => r[cfg.pk] === row[cfg.pk]);
+    if (idx !== -1) currentRows[idx] = updatedRow;
+
+    const newTr = buildRow(cfg, updatedRow);
+    tr.replaceWith(newTr);
+    showToast('✓ 저장 완료', 'ok');
+  } catch {
+    showToast('✗ 저장 실패', 'err');
+  }
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2200);
+}
+</script>
+</body>
+</html>

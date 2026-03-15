@@ -1,7 +1,7 @@
 import { EXP_TABLE } from '../constants/gameData';
 
 export default class Player {
-  constructor(scene, x, y) {
+  constructor(scene, x, y, username = '') {
     this.scene = scene;
 
     // ── 스탯 ──
@@ -39,6 +39,15 @@ export default class Player {
 
     // 스프라이트
     this.sprite = scene.physics.add.sprite(x, y, 'player', 0);
+
+    // 닉네임 라벨 (스프라이트 아래)
+    this._nameLabel = username
+      ? scene.add.text(x, y + 28, username, {
+          fontSize: '11px', color: '#ffffff',
+          stroke: '#000000', strokeThickness: 3,
+          backgroundColor: '#00000055', padding: { x: 4, y: 2 },
+        }).setOrigin(0.5, 0).setDepth(6)
+      : null;
     this.sprite.setDepth(5);
     this.sprite.body.setSize(22, 20).setOffset(5, 12);
     this.sprite.body.setCollideWorldBounds(true);
@@ -137,6 +146,8 @@ export default class Player {
   _onLevelUp() {
     this.ap += 5;
     this.scene._updateStatWindow?.();
+    // 레벨업 즉시 저장
+    this.scene._saveManager?.saveNow('levelup');
 
     const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 40, `LEVEL UP!  Lv.${this.level}`, {
       fontSize: '20px', fontStyle: 'bold',
@@ -170,6 +181,7 @@ export default class Player {
 
   update() {
     this._shadow.setPosition(this.sprite.x, this.sprite.y + 14);
+    this._nameLabel?.setPosition(this.sprite.x, this.sprite.y + 28);
 
     if (this._isKnockback) {
       this._updateAnim(false);

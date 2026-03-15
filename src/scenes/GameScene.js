@@ -3,10 +3,16 @@ import Snail       from '../objects/Snail.js';
 import MeleeAttack from '../objects/MeleeAttack.js';
 import Item        from '../objects/Item.js';
 import Portal      from '../objects/Portal.js';
+import InventoryUI from '../objects/InventoryUI.js';
 import { MapRepository } from '../repositories/MapRepository';
+import { AuthState }     from '../services/AuthState.js';
+import { EXP_TABLE }     from '../constants/gameData';
+import SaveManager      from '../services/SaveManager.js';
+import ArenaClient   from '../services/ArenaClient.js';
 
-const MAP_W = 3200;
-const MAP_H = 2400;
+const DEFAULT_MAP_W = 3200;
+const DEFAULT_MAP_H = 2400;
+const ARENA_MAP_ID  = 200000000;
 
 // 모바일 여부 판단
 const IS_MOBILE = ('ontouchstart' in window) && !window.matchMedia('(pointer:fine)').matches;
@@ -21,25 +27,63 @@ export default class GameScene extends Phaser.Scene {
     this.portals   = [];
     this._isDead   = false;
     this._transitioning = false;
+    this._isArena       = false;
+    this._arenaClient   = null;
+    this._otherPlayers  = new Map();
   }
 
   create(data) {
+    // scene.restart() 시 constructor는 재실행되지 않으므로 상태 수동 리셋
+    this._transitioning = false;
+    this._isDead        = false;
+    this.snails         = [];
+    this.attacks        = [];
+    this.items          = [];
+    this.portals        = [];
+    this.inventory      = [];   // 씬 재시작마다 DB에서 새로 로드
+    this._inventoryUI   = null;
+    this._saveManager   = null;
+    this._isArena       = false;
+    this._arenaClient   = null;
+    this._otherPlayers  = new Map();
+
     // ── 현재 맵 정보 ──
     const mapId  = data?.mapId  ?? 100000000;
-    const startX = data?.startX ?? MAP_W / 2;
-    const startY = data?.startY ?? MAP_H / 2;
     this._currentMap = MapRepository.getById(mapId);
+    this._mapW = this._currentMap?.map_w ?? DEFAULT_MAP_W;
+    this._mapH = this._currentMap?.map_h ?? DEFAULT_MAP_H;
+    this._isArena = mapId === ARENA_MAP_ID;
+    const startX = Math.max(20, Math.min(data?.startX ?? this._mapW / 2, this._mapW - 20));
+    const startY = Math.max(20, Math.min(data?.startY ?? this._mapH / 2, this._mapH - 20));
 
     // ── 타일맵 배경 ──
     this._buildTilemap();
 
-    this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
+    this.physics.world.setBounds(0, 0, this._mapW, this._mapH);
 
     // ── 플레이어 ──
-    this.player = new Player(this, startX, startY);
+    const _pName = AuthState.isGuest ? '게스트' : (AuthState.username ?? '');
+    this.player = new Player(this, startX, startY, _pName);
+
+    // 로그인 데이터로 스탯 복원
+    if (data?.charStats) {
+      const cs = data.charStats;
+      this.player.level      = cs.currentLevel ?? 1;
+      this.player.currentExp = cs.currentExp   ?? 0;
+      this.player.maxExp     = EXP_TABLE[cs.currentLevel ?? 1] ?? 15;
+      this.player.hp         = cs.hp  ?? 50;
+      this.player.maxHp      = cs.hp  ?? 50;
+      this.player.mp         = cs.mp  ?? 50;
+      this.player.maxMp      = cs.mp  ?? 50;
+      this.player.str        = cs.str ?? 4;
+      this.player.dex        = cs.dex ?? 4;
+      this.player.int        = cs.int ?? 4;
+      this.player.luk        = cs.luk ?? 4;
+      this.player.ap         = cs.ap  ?? 0;
+    }
 
     // ── 카메라 ──
-    this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
+    this.cameras.main.setBounds(0, 0, this._mapW, this._mapH);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
     // ── 포탈 생성 (D1에서 로드) ──
@@ -59,8 +103,8 @@ export default class GameScene extends Phaser.Scene {
       spawnConfig.forEach(({ type, count }) => {
         for (let i = 0; i < count; i++) {
           this.snails.push(new Snail(this,
-            Phaser.Math.Between(200, MAP_W - 200),
-            Phaser.Math.Between(200, MAP_H - 200),
+            Phaser.Math.Between(200, this._mapW - 200),
+            Phaser.Math.Between(200, this._mapH - 200),
             type,
           ));
         }
@@ -113,6 +157,12 @@ export default class GameScene extends Phaser.Scene {
     this._buildGamepad();
     if (IS_MOBILE) this._buildLootButton();
     this._buildStatWindow();
+    this._buildMinimapUI();
+    this._buildWorldMapUI();
+    this._buildInventoryUI();
+    this._loadInventory();       // 로그인 계정 인벤토리 DB 로드
+    this._buildSaveSystem();
+    if (this._isArena) this._initArena();
     this._buildLighting();
   }
 
@@ -124,11 +174,17 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.017', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.034', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
-    const hy = ly + 22;
+    // 유저명 표시
+    const displayName = AuthState.isGuest ? '게스트' : (AuthState.username ?? '');
+    this.add.text(lx, ly + 16, displayName, {
+      fontSize: '11px', color: '#ffee88', backgroundColor: '#00000077', padding: { x:4,y:2 },
+    }).setScrollFactor(0).setDepth(50);
+
+    const hy = ly + 36;
     const my = hy + 20;
 
     // HP 배경 + 채움
@@ -170,6 +226,35 @@ export default class GameScene extends Phaser.Scene {
     statBtn.on('pointerdown', (ptr) => {
       this._gamepadPointers.add(ptr.id);
       this._toggleStatWindow();
+    });
+
+    // INVEN 버튼
+    const invenBtn = this.add.rectangle(lx + 90, statBtnY, 56, 20, 0x1a3022, 0.92)
+      .setScrollFactor(0).setDepth(50).setStrokeStyle(1, 0x44aa66)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(lx + 90, statBtnY, 'INVEN', {
+      fontSize: '11px', color: '#88ffbb', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(51);
+    invenBtn.on('pointerover',  () => invenBtn.setFillStyle(0x2a4d38, 0.95));
+    invenBtn.on('pointerout',   () => invenBtn.setFillStyle(0x1a3022, 0.92));
+    invenBtn.on('pointerdown', (ptr) => {
+      this._gamepadPointers.add(ptr.id);
+      this._inventoryUI?.toggle();
+    });
+
+    // 로그아웃 버튼
+    const logoutBtnY = statBtnY + 26;
+    const logoutBtn = this.add.rectangle(lx + 28, logoutBtnY, 56, 20, 0x2a1010, 0.92)
+      .setScrollFactor(0).setDepth(50).setStrokeStyle(1, 0x883333)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(lx + 28, logoutBtnY, 'LOGOUT', {
+      fontSize: '10px', color: '#ff8888', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(51);
+    logoutBtn.on('pointerover',  () => logoutBtn.setFillStyle(0x441515, 0.95));
+    logoutBtn.on('pointerout',   () => logoutBtn.setFillStyle(0x2a1010, 0.92));
+    logoutBtn.on('pointerdown', (ptr) => {
+      this._gamepadPointers.add(ptr.id);
+      this._logout();
     });
   }
 
@@ -344,6 +429,37 @@ export default class GameScene extends Phaser.Scene {
     if (this._isDead) return;
     this._isDead = true;
 
+    // 투기장에서는 게임오버 없이 리스폰
+    if (this._isArena) {
+      const W = this.scale.width, H = this.scale.height;
+      const overlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.6).setScrollFactor(0).setDepth(80);
+      const txt = this.add.text(W/2, H/2, '전투 불능!\n3초 후 리스폰...', {
+        fontSize: '28px', fontStyle: 'bold', color: '#ff6666',
+        stroke: '#000', strokeThickness: 5, align: 'center',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
+      this.time.delayedCall(3000, () => {
+        overlay.destroy(); txt.destroy();
+        this._isDead = false;
+        // HP 회복
+        this.player.hp = this.player.maxHp;
+        this.player.isInvincible = false;
+        this.player.sprite.setAlpha(1);
+        // 중앙으로 텔레포트 (physics body 포함)
+        const rx = this._mapW / 2, ry = this._mapH / 2;
+        this.player.sprite.body.reset(rx, ry);
+        this.player.targetX = rx;
+        this.player.targetY = ry;
+        this.player.moving = false;
+        // HP바 갱신
+        if (this._hpFill) this._hpFill.setSize(this._statusBarW, this._hpFill.height);
+        this._arenaClient?.updateStats(this.player.hp, this.player.maxHp, this.player.level);
+      });
+      return;
+    }
+
+    // 일반 맵: 게임 오버
+    this._saveManager?.saveNow('death');
+
     const W = this.scale.width, H = this.scale.height;
     this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.65).setScrollFactor(0).setDepth(80);
     this.add.text(W/2, H/2 - 30, 'GAME OVER', {
@@ -354,7 +470,14 @@ export default class GameScene extends Phaser.Scene {
       fontSize: '18px', color: '#ffffff',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
 
-    this.input.once('pointerdown', () => this.scene.restart());
+    this.input.once('pointerdown', () => {
+      this.scene.restart({
+        mapId:     this._currentMap.map_id,
+        startX:    this.player.x,
+        startY:    this.player.y,
+        charStats: this._getCharSnapshot(),
+      });
+    });
   }
 
   // ── 업데이트 루프 ────────────────────────────────────────────────────────────
@@ -387,6 +510,12 @@ export default class GameScene extends Phaser.Scene {
     this.items = this.items.filter(i => !i.picked);
     this.items.forEach(i => i.updateTooltipPos());
 
+    // 투기장: 내 위치 동기화
+    if (this._isArena && this._arenaClient) {
+      this._arenaClient.sendMove(this.player.x, this.player.y);
+      this._updateOtherPlayerSprites();
+    }
+
     // 포탈 충돌 체크
     if (!this._transitioning) {
       this.portals.forEach(portal => {
@@ -416,7 +545,10 @@ export default class GameScene extends Phaser.Scene {
     this._mpFill.width = this._statusBarW * mpR;
     this._hpTxt.setText(`HP  ${p.hp} / ${p.maxHp}`);
     this._mpTxt.setText(`MP  ${p.mp} / ${p.maxMp}`);
-    this._infoTxt.setText(`🐌 ${this.snails.length}마리  🎒 ${this.inventory.length}칸`);
+    this._infoTxt.setText(`몬스터 ${this.snails.length}마리  인벤토리 ${this.inventory.length}칸`);
+
+    // ── 미니맵 플레이어 점 업데이트 ──
+    this._updateMinimap();
 
     // ── EXP 바 업데이트 ──
     const expR = p.level >= 20 ? 1 : p.currentExp / p.maxExp;
@@ -429,15 +561,108 @@ export default class GameScene extends Phaser.Scene {
   _enterPortal(portal) {
     portal._used = true;
     this._transitioning = true;
+
+    // 씬 전환 전 아레나 클라이언트 종료
+    this._arenaClient?.destroy();
+    this._arenaClient = null;
+
+    // 씬 전환 전 캐릭터 저장 (SaveManager destroy가 keepalive로 처리)
+    this._saveManager?.destroy();
+    this._saveManager = null;
+
     this.cameras.main.fade(400, 0, 0, 0, false, (_cam, progress) => {
       if (progress < 1) return;
       this.portals = [];
       this.scene.restart({
-        mapId:  portal.toMapId,
-        startX: portal.targetX,
-        startY: portal.targetY,
+        mapId:     portal.toMapId,
+        startX:    portal.targetX,
+        startY:    portal.targetY,
+        charStats: this._getCharSnapshot(portal.toMapId, portal.targetX, portal.targetY),
       });
     });
+  }
+
+  /** 현재 플레이어 스탯을 스냅샷으로 반환 (씬 재시작 시 전달용) */
+  _getCharSnapshot(mapId, posX, posY) {
+    const p = this.player;
+    return {
+      currentLevel: p.level,
+      currentExp:   p.currentExp,
+      hp:  p.hp,  mp:  p.mp,
+      str: p.str, dex: p.dex,
+      int: p.int, luk: p.luk,
+      ap:  p.ap,
+      mapId: mapId ?? this._currentMap.map_id,
+      posX:  posX  ?? p.x,
+      posY:  posY  ?? p.y,
+    };
+  }
+
+  // ── SaveManager 초기화 ───────────────────────────────────────────────────
+  _buildSaveSystem() {
+    this._saveManager = new SaveManager(this, () => {
+      if (!this.player || !AuthState.userId) return null;
+      const p = this.player;
+      return {
+        user_id:       AuthState.userId,
+        current_level: p.level,
+        current_exp:   p.currentExp,
+        hp:  p.hp,  mp:  p.mp,
+        str: p.str, dex: p.dex,
+        int: p.int, luk: p.luk,
+        ap:  p.ap,
+        map_id: this._currentMap?.map_id ?? 100000000,
+        pos_x:  p.x,
+        pos_y:  p.y,
+      };
+    });
+
+    // 저장 완료 지시자 UI
+    this._saveIndicatorTxt = this.add.text(
+      this.scale.width - 8, this.scale.height - 30,
+      '', { fontSize: '10px', color: '#55ff88', stroke: '#000', strokeThickness: 2 },
+    ).setOrigin(1, 0.5).setScrollFactor(0).setDepth(55).setAlpha(0);
+  }
+
+  /** 저장 완료 시 잠깐 표시하는 지시자 */
+  _showSaveIndicator(reason = '') {
+    if (!this._saveIndicatorTxt) return;
+    const label = reason === 'levelup'   ? '💾 레벨업 저장'
+                : reason === 'item_loot' ? '💾 아이템 저장'
+                : reason === 'death'     ? '💾 저장됨'
+                : '💾 자동 저장';
+    this._saveIndicatorTxt.setText(label).setAlpha(1);
+    this.tweens.killTweensOf(this._saveIndicatorTxt);
+    this.tweens.add({
+      targets:  this._saveIndicatorTxt,
+      alpha:    0,
+      duration: 1200,
+      delay:    800,
+    });
+  }
+
+  // ── 로그아웃 ─────────────────────────────────────────────────────────────
+  _logout() {
+    // 현재 위치/스탯 저장 후 인증 상태 초기화
+    this._arenaClient?.destroy();
+    this._arenaClient = null;
+    this._saveManager?.saveNow('logout');
+    this._saveManager?.destroy();
+    this._saveManager = null;
+    AuthState.clear();
+
+    this.cameras.main.fade(400, 0, 0, 0, false, (_cam, progress) => {
+      if (progress < 1) return;
+      this.scene.start('LoginScene');
+    });
+  }
+
+  // ── 씬 종료 라이프사이클 (scene.restart / scene.start 전 자동 호출) ────────
+  shutdown() {
+    this._arenaClient?.destroy();
+    this._arenaClient = null;
+    this._saveManager?.destroy();
+    this._saveManager = null;
   }
 
   // ── 맵 이름 표시 ─────────────────────────────────────────────────────────────
@@ -627,6 +852,66 @@ export default class GameScene extends Phaser.Scene {
       const kbl = Math.sqrt(kbx * kbx + kby * kby) || 1;
       snail.takeDamage(dmg, kbx / kbl, kby / kbl, isCritical);
     });
+
+    // 투기장 PK: 다른 플레이어 공격 판정
+    if (this._isArena && this._arenaClient) {
+      this._otherPlayers.forEach((op, userId) => {
+        if (!op.sprite?.active) return;
+        const fakeMob = { sprite: op.sprite, alive: true };
+        if (!attack.checkHit(fakeMob)) return;
+        const isCritical = Math.random() < 0.20;
+        const base = Phaser.Math.Between(12, 25);
+        const dmg  = isCritical ? Math.floor(base * 1.5) : base;
+        this._arenaClient.sendAttack(userId, dmg);
+        this._showDmgNum(op.sprite.x, op.sprite.y - 20, dmg, isCritical, '#ff6666');
+      });
+    }
+  }
+
+  // ── 아이템 획득 토스트 ────────────────────────────────────────────────────────
+  _showPickupToast(invItem) {
+    const W      = this.scale.width;
+    const master = invItem.master;
+    const isEquip   = master.category === 'EQUIP';
+    const isConsume = master.category === 'CONSUME';
+    const color  = isEquip ? '#ffcc44' : isConsume ? '#55ff88' : '#cccccc';
+
+    let line1 = `[ ${master.name} 획득 ]`;
+    let line2 = '';
+
+    if (isEquip && invItem.equip) {
+      const e = invItem.equip;
+      const parts = [];
+      if (master.baseAtk + e.atkBonus > 0) parts.push(`ATK +${master.baseAtk + e.atkBonus}`);
+      if (master.baseStr + e.strBonus > 0) parts.push(`STR +${master.baseStr + e.strBonus}`);
+      if (master.baseDex + e.dexBonus > 0) parts.push(`DEX +${master.baseDex + e.dexBonus}`);
+      if (master.baseInt + e.intBonus > 0) parts.push(`INT +${master.baseInt + e.intBonus}`);
+      if (master.baseLuk + e.lukBonus > 0) parts.push(`LUK +${master.baseLuk + e.lukBonus}`);
+      if (master.baseDef + e.defBonus > 0) parts.push(`DEF +${master.baseDef + e.defBonus}`);
+      if (e.upgradeSlots > 0) parts.push(`(+${e.upgradeSlots}업)`);
+      line2 = parts.join('  ');
+    } else if (isConsume) {
+      const parts = [];
+      if (master.hpRecover > 0) parts.push(`HP +${master.hpRecover}`);
+      if (master.mpRecover > 0) parts.push(`MP +${master.mpRecover}`);
+      line2 = parts.join('  ');
+    }
+
+    const txt = this.add.text(W / 2, 100, line1 + (line2 ? '\n' + line2 : ''), {
+      fontSize: '13px', color,
+      stroke: '#000000', strokeThickness: 3,
+      align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(90).setAlpha(0);
+
+    this.tweens.add({
+      targets: txt, alpha: 1, duration: 300,
+      onComplete: () => {
+        this.tweens.add({
+          targets: txt, alpha: 0, duration: 600, delay: 1500,
+          onComplete: () => txt.destroy(),
+        });
+      },
+    });
   }
 
   // ── 라이팅 (비넷 + 블룸) ────────────────────────────────────────────────────
@@ -651,22 +936,43 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _generateMapData() {
-    const COLS = MAP_W / 32;  // 100
-    const ROWS = MAP_H / 32;  // 75
+    const COLS = Math.floor(this._mapW / 32);
+    const ROWS = Math.floor(this._mapH / 32);
     const data  = [];
+
+    if (this._isArena) {
+      // 콜로세움 투기장 타일맵: 돌바닥 + 경계 벽
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+          const onWall = r < 3 || r >= ROWS - 3 || c < 3 || c >= COLS - 3;
+          const onRing = r < 6 || r >= ROWS - 6 || c < 6 || c >= COLS - 6;
+          if (onWall)      row.push(1);                      // 어두운 돌벽
+          else if (onRing) row.push((c + r) % 2 === 0 ? 4 : 5); // 경계 석판
+          else             row.push((c + r) % 2 === 0 ? 4 : 5); // 모래/흙 바닥
+        }
+        data.push(row);
+      }
+      return data;
+    }
+
+    // 일반 맵: 중앙 十자 경로
+    const midR0 = Math.floor(ROWS * 0.46), midR1 = Math.ceil(ROWS * 0.54);
+    const midC0 = Math.floor(COLS * 0.46), midC1 = Math.ceil(COLS * 0.54);
+
     for (let r = 0; r < ROWS; r++) {
       const row = [];
       for (let c = 0; c < COLS; c++) {
-        const onHPath = r >= 36 && r <= 38;
-        const onVPath = c >= 48 && c <= 50;
+        const onHPath = r >= midR0 && r <= midR1;
+        const onVPath = c >= midC0 && c <= midC1;
         if (onHPath || onVPath) {
-          row.push(4 + ((c + r) % 2)); // 흙 (4 or 5)
+          row.push(4 + ((c + r) % 2));
         } else {
           const h = (c * 31 + r * 17) % 100;
-          if (h < 38)      row.push(1); // 어두운 잔디
-          else if (h < 68) row.push(2); // 중간 잔디
-          else if (h < 85) row.push(3); // 밝은 잔디
-          else             row.push(6); // 꽃 잔디
+          if (h < 38)      row.push(1);
+          else if (h < 68) row.push(2);
+          else if (h < 85) row.push(3);
+          else             row.push(6);
         }
       }
       data.push(row);
@@ -674,30 +980,510 @@ export default class GameScene extends Phaser.Scene {
     return data;
   }
 
+  // ── 미니맵 UI ────────────────────────────────────────────────────────────────
+  _buildMinimapUI() {
+    const W = this.scale.width;
+    const MM_W = 160, MM_H = 112;
+    const mmRight = W - 8;
+    const mmLeft  = mmRight - MM_W;
+    const mmTop   = 36;
+    const mmCX    = mmLeft + MM_W / 2;
+    const mmCY    = mmTop  + MM_H / 2;
+
+    this._mmLeft = mmLeft;
+    this._mmTop  = mmTop;
+    this._MM_W   = MM_W;
+    this._MM_H   = MM_H;
+
+    // [Mini] / [World] 버튼 (항상 표시)
+    const btnY = 14;
+    [
+      { label: 'Mini',  cx: W - 120, fn: () => this._toggleMinimap()  },
+      { label: 'World', cx: W - 44,  fn: () => this._toggleWorldMap() },
+    ].forEach(({ label, cx, fn }) => {
+      const bg = this.add.rectangle(cx, btnY, 68, 22, 0x152535, 0.9)
+        .setScrollFactor(0).setDepth(60).setStrokeStyle(1, 0x336688)
+        .setInteractive({ useHandCursor: true });
+      this.add.text(cx, btnY, label, { fontSize: '11px', color: '#88ccff' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(61);
+      bg.on('pointerover', () => bg.setFillStyle(0x243d55, 0.95));
+      bg.on('pointerout',  () => bg.setFillStyle(0x152535, 0.90));
+      bg.on('pointerdown', (ptr) => { this._gamepadPointers.add(ptr.id); fn(); });
+    });
+
+    // 미니맵 오브젝트 목록 (토글 시 일괄 숨김/표시)
+    this._mmObjs = [];
+
+    // 배경 패널
+    this._mmObjs.push(
+      this.add.rectangle(mmCX, mmCY, MM_W + 2, MM_H + 2, 0x080e08, 0.88)
+        .setScrollFactor(0).setDepth(60).setStrokeStyle(1, 0x3a6640, 0.85),
+    );
+
+    // 지형 그래픽 (정적 — 한 번만 그림)
+    const terrainGfx = this.add.graphics().setScrollFactor(0).setDepth(61);
+    this._mmObjs.push(terrainGfx);
+    this._drawMinimapTerrain(terrainGfx);
+
+    // 플레이어 점 (매 프레임 갱신)
+    this._mmPlayerDot = this.add.graphics().setScrollFactor(0).setDepth(63);
+    this._mmObjs.push(this._mmPlayerDot);
+
+    // 맵 이름 라벨
+    this._mmObjs.push(
+      this.add.text(mmCX, mmTop + MM_H - 4, this._currentMap.name, {
+        fontSize: '9px', color: '#88ffaa', stroke: '#000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(62),
+    );
+
+    this._mmVisible = true;
+
+    // 키보드 단축키
+    this.input.keyboard.on('keydown-M', () => this._toggleMinimap());
+    this.input.keyboard.on('keydown-W', () => this._toggleWorldMap());
+  }
+
+  _drawMinimapTerrain(gfx) {
+    const { _mmLeft: ml, _mmTop: mt, _MM_W: mw, _MM_H: mh } = this;
+    const scX = mw / this._mapW;
+    const scY = mh / this._mapH;
+    gfx.clear();
+
+    // 잔디 배경
+    gfx.fillStyle(0x1e4a1e, 0.95);
+    gfx.fillRect(ml, mt, mw, mh);
+
+    // 경로 (맵 중앙 ±4%)
+    const pY0 = this._mapH * 0.46, pYh = this._mapH * 0.08;
+    const pX0 = this._mapW * 0.46, pXw = this._mapW * 0.08;
+    gfx.fillStyle(0x6b4c1a, 0.85);
+    gfx.fillRect(ml, mt + pY0 * scY, mw, Math.max(2, pYh * scY));
+    gfx.fillStyle(0x6b4c1a, 0.85);
+    gfx.fillRect(ml + pX0 * scX, mt, Math.max(2, pXw * scX), mh);
+
+    // 현재 맵의 포탈 위치
+    const portals = MapRepository.getPortals(this._currentMap.map_id);
+    portals.forEach(p => {
+      const px = ml + p.pos_x * scX;
+      const py = mt + p.pos_y * scY;
+      gfx.fillStyle(0x00ffcc, 0.85);
+      gfx.fillCircle(px, py, 2.5);
+    });
+  }
+
+  _updateMinimap() {
+    if (!this._mmVisible || !this._mmPlayerDot) return;
+    const { _mmLeft: ml, _mmTop: mt, _MM_W: mw, _MM_H: mh } = this;
+    const dotX = ml + (this.player.x / this._mapW) * mw;
+    const dotY = mt + (this.player.y / this._mapH) * mh;
+    this._mmPlayerDot.clear();
+    this._mmPlayerDot.fillStyle(0xffff00, 1.0);
+    this._mmPlayerDot.fillCircle(dotX, dotY, 3);
+    this._mmPlayerDot.lineStyle(1, 0x000000, 0.85);
+    this._mmPlayerDot.strokeCircle(dotX, dotY, 3);
+  }
+
+  _toggleMinimap() {
+    this._mmVisible = !this._mmVisible;
+    this._mmObjs.forEach(o => o.setVisible(this._mmVisible));
+  }
+
+  // ── 월드맵 UI ────────────────────────────────────────────────────────────────
+  _buildWorldMapUI() {
+    const W  = this.scale.width;
+    const H  = this.scale.height;
+    const cx = W / 2, cy = H / 2;
+    const pw = 500, ph = 300;
+
+    this._worldMapObjs = [];
+    const reg = (obj) => { this._worldMapObjs.push(obj); return obj; };
+
+    // 배경 패널
+    reg(this.add.rectangle(cx, cy, pw, ph, 0x07111d, 0.96)
+      .setScrollFactor(0).setDepth(75).setStrokeStyle(2, 0x3377aa, 0.9));
+
+    // 타이틀
+    reg(this.add.text(cx, cy - ph / 2 + 18, 'Maple Island  [ W ]', {
+      fontSize: '13px', fontStyle: 'bold', color: '#88ccff',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(76));
+
+    // 닫기 버튼
+    const closeBtn = reg(this.add.rectangle(cx + pw / 2 - 18, cy - ph / 2 + 18, 26, 26, 0x3a1020, 0.9)
+      .setScrollFactor(0).setDepth(77).setStrokeStyle(1, 0x883344)
+      .setInteractive({ useHandCursor: true }));
+    reg(this.add.text(cx + pw / 2 - 18, cy - ph / 2 + 18, 'x', {
+      fontSize: '13px', fontStyle: 'bold', color: '#ff9999',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(78));
+    closeBtn.on('pointerover', () => closeBtn.setFillStyle(0x551830, 0.95));
+    closeBtn.on('pointerout',  () => closeBtn.setFillStyle(0x3a1020, 0.90));
+    closeBtn.on('pointerdown', (ptr) => { this._gamepadPointers.add(ptr.id); this._toggleWorldMap(); });
+
+    // 설명 텍스트 & 구분선
+    const descTxt = reg(this.add.text(cx, cy + ph / 2 - 20, '맵을 클릭하면 설명을 볼 수 있습니다.', {
+      fontSize: '10px', color: '#99aabb', align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(76));
+    reg(this.add.rectangle(cx, cy + ph / 2 - 36, pw - 24, 1, 0x2a3f55)
+      .setScrollFactor(0).setDepth(76));
+
+    const MAP_DESC = {
+      100000000: '메이플 아일랜드의 시작 마을.\n초보 모험가들이 첫 발을 내딛는 곳.',
+      100000001: '나무가 우거진 들판.\n달팽이와 버섯이 서식한다.',
+      100000002: '더 깊은 숲.\n강한 몬스터들이 출몰한다.',
+      100000003: '남쪽 항구 마을.\n빅토리아 아일랜드행 배가 있다.',
+      200000000: 'PK 전용 전투 구역.\n암허스트 12시 방향 포탈로 입장.',
+    };
+
+    const nodeW = 84, nodeH = 52;
+    const mainRowY = cy + 32;
+    const arenaY   = cy - 56;
+
+    // 노드 위치 (명시적)
+    const mapPos = {
+      100000000: { x: cx - 150, y: mainRowY },
+      100000001: { x: cx - 50,  y: mainRowY },
+      100000002: { x: cx + 50,  y: mainRowY },
+      100000003: { x: cx + 150, y: mainRowY },
+      200000000: { x: cx - 150, y: arenaY   },
+    };
+
+    // ── 연결선 먼저 그리기 ──
+    // 메인 체인 (수평 양방향)
+    [[100000000, 100000001], [100000001, 100000002], [100000002, 100000003]].forEach(([aid, bid]) => {
+      const a = mapPos[aid], b = mapPos[bid];
+      const lg = reg(this.add.graphics().setScrollFactor(0).setDepth(75));
+      lg.lineStyle(1, 0x334455, 0.8);
+      lg.beginPath();
+      lg.moveTo(a.x + nodeW / 2, a.y);
+      lg.lineTo(b.x - nodeW / 2, b.y);
+      lg.strokePath();
+      const mx = (a.x + nodeW / 2 + b.x - nodeW / 2) / 2;
+      reg(this.add.text(mx, a.y - 7, '<>', {
+        fontSize: '10px', color: '#446677',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(76));
+    });
+
+    // 암허스트 ↕ 투기장 (수직, 12시 방향)
+    {
+      const a = mapPos[100000000];
+      const b = mapPos[200000000];
+      const vg = reg(this.add.graphics().setScrollFactor(0).setDepth(75));
+      vg.lineStyle(1.5, 0x884444, 0.85);
+      vg.beginPath();
+      vg.moveTo(a.x, a.y - nodeH / 2);
+      vg.lineTo(b.x, b.y + nodeH / 2);
+      vg.strokePath();
+      const midY = (a.y - nodeH / 2 + b.y + nodeH / 2) / 2;
+      reg(this.add.text(a.x + 6, midY, '⚔ 12시', {
+        fontSize: '9px', color: '#ff8866',
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(76));
+    }
+
+    // ── 맵 노드 그리기 ──
+    MapRepository.getAll().forEach((map) => {
+      const pos = mapPos[map.map_id];
+      if (!pos) return;
+
+      const isCur   = map.map_id === this._currentMap.map_id;
+      const isArena = map.map_id === 200000000;
+      const isField = !map.is_town;
+
+      let bgColor, bordCol, hoverCol, tagLabel, tagColor;
+      if (isArena) {
+        bgColor  = 0x2a1010; bordCol = isCur ? 0xffee44 : 0xaa3333;
+        hoverCol = 0x3f1818; tagLabel = 'PK 투기장'; tagColor = '#ff6666';
+      } else if (isField) {
+        bgColor  = 0x152a1e; bordCol = isCur ? 0xffee44 : 0x3a8050;
+        hoverCol = 0x1f3d2b; tagLabel = '필드'; tagColor = '#55bb77';
+      } else {
+        bgColor  = 0x151e2a; bordCol = isCur ? 0xffee44 : 0x3a5080;
+        hoverCol = 0x1f2e42; tagLabel = '마을'; tagColor = '#5577bb';
+      }
+
+      const box = reg(this.add.rectangle(pos.x, pos.y, nodeW, nodeH, bgColor, 0.92)
+        .setScrollFactor(0).setDepth(76)
+        .setStrokeStyle(isCur ? 2 : 1, bordCol)
+        .setInteractive({ useHandCursor: true }));
+
+      reg(this.add.text(pos.x, pos.y - nodeH / 2 + 9, tagLabel, {
+        fontSize: '8px', color: tagColor,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(77));
+
+      reg(this.add.text(pos.x, pos.y + 4, map.name, {
+        fontSize: '11px', fontStyle: 'bold',
+        color: isCur ? '#ffee44' : '#cce0ff',
+        align: 'center', wordWrap: { width: nodeW - 8 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(77));
+
+      if (isCur) {
+        reg(this.add.text(pos.x, pos.y + nodeH / 2 - 8, '[ HERE ]', {
+          fontSize: '8px', fontStyle: 'bold', color: '#ffee44',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(77));
+      }
+
+      box.on('pointerover', () => box.setFillStyle(hoverCol, 0.95));
+      box.on('pointerout',  () => box.setFillStyle(bgColor, 0.92));
+      box.on('pointerdown', (ptr) => {
+        this._gamepadPointers.add(ptr.id);
+        descTxt.setText(MAP_DESC[map.map_id] ?? map.name);
+      });
+    });
+
+    this._worldMapVisible = false;
+    this._worldMapObjs.forEach(o => o.setVisible(false));
+  }
+
+  _toggleWorldMap() {
+    this._worldMapVisible = !this._worldMapVisible;
+    this._worldMapObjs.forEach(o => o.setVisible(this._worldMapVisible));
+  }
+
+  // ── 인벤토리 UI ──────────────────────────────────────────────────────────────
+  _buildInventoryUI() {
+    this._inventoryUI = new InventoryUI(this);
+    // 키보드 단축키 I
+    this.input.keyboard.on('keydown-I', () => this._inventoryUI?.toggle());
+  }
+
+  // ── 인벤토리 DB 로드 ─────────────────────────────────────────────────────────
+  async _loadInventory() {
+    // 게스트는 빈 인벤토리로 시작
+    if (!AuthState.userId || AuthState.isGuest) return;
+
+    try {
+      const res = await fetch(`/api/inventory?user_id=${AuthState.userId}`);
+      if (!res.ok) return;
+
+      const items = await res.json();
+      if (!Array.isArray(items) || items.length === 0) return;
+
+      this.inventory = items;
+      this._inventoryUI?.syncFromInventory(items);
+    } catch (_e) {
+      // 네트워크 오류 시 빈 인벤토리 유지
+    }
+  }
+
   _placeTreeDecorations() {
+    if (this._isArena) {
+      // 투기장은 나무 없음 — 콜로세움 기둥 장식만
+      const W = this._mapW, H = this._mapH;
+      const gfx = this.add.graphics().setDepth(1);
+      gfx.fillStyle(0x5a4a30, 1);
+      const pillars = [
+        [W*0.2, H*0.15], [W*0.5, H*0.1], [W*0.8, H*0.15],
+        [W*0.1, H*0.5],  [W*0.9, H*0.5],
+        [W*0.2, H*0.85], [W*0.5, H*0.9], [W*0.8, H*0.85],
+      ];
+      pillars.forEach(([px, py]) => {
+        gfx.fillStyle(0x6a5a40, 1);
+        gfx.fillRect(px - 12, py - 24, 24, 48);
+        gfx.fillStyle(0x8a7a60, 1);
+        gfx.fillRect(px - 14, py - 28, 28, 8);
+        gfx.fillRect(px - 14, py + 20, 28, 8);
+      });
+      return;
+    }
+
     const rng = (min, max) => Phaser.Math.Between(min, max);
+    const W = this._mapW, H = this._mapH;
+    const border      = Math.max(16, Math.floor(W * 0.06));
+    const innerBorder = Math.max(border + 16, Math.floor(W * 0.12));
+    const sideCount   = Math.max(4,  Math.floor(W * H / 40000));
+    const topCount    = Math.max(3,  Math.floor(W * H / 55000));
+    const scatCount   = Math.max(4,  Math.floor(W * H / 50000));
     const positions = [];
 
-    // 맵 테두리 나무
-    for (let i = 0; i < 50; i++) {
-      positions.push([rng(16, 120),           rng(16, MAP_H - 16)]);
-      positions.push([rng(MAP_W - 120, MAP_W - 16), rng(16, MAP_H - 16)]);
+    for (let i = 0; i < sideCount; i++) {
+      positions.push([rng(border, innerBorder),           rng(border, H - border)]);
+      positions.push([rng(W - innerBorder, W - border),   rng(border, H - border)]);
     }
-    for (let i = 0; i < 30; i++) {
-      positions.push([rng(120, MAP_W - 120), rng(16, 100)]);
-      positions.push([rng(120, MAP_W - 120), rng(MAP_H - 100, MAP_H - 16)]);
+    for (let i = 0; i < topCount; i++) {
+      positions.push([rng(innerBorder, W - innerBorder), rng(border, innerBorder)]);
+      positions.push([rng(innerBorder, W - innerBorder), rng(H - innerBorder, H - border)]);
     }
-    // 내부 산발적 나무
-    for (let i = 0; i < 40; i++) {
-      const x = rng(150, MAP_W - 150);
-      const y = rng(150, MAP_H - 150);
-      if (Math.abs(x - MAP_W/2) > 350 || Math.abs(y - MAP_H/2) > 300) {
+    for (let i = 0; i < scatCount; i++) {
+      const x = rng(innerBorder, W - innerBorder);
+      const y = rng(innerBorder, H - innerBorder);
+      if (Math.abs(x - W/2) > W * 0.15 || Math.abs(y - H/2) > H * 0.15) {
         positions.push([x, y]);
       }
     }
-
     positions.forEach(([x, y]) => {
-      this.add.image(x, y, 'tree').setDepth(y * 0.001); // y-sort depth
+      this.add.image(x, y, 'tree').setDepth(y * 0.001);
+    });
+  }
+
+  // ── 투기장 초기화 ─────────────────────────────────────────────────────────
+  _initArena() {
+    // PK 활성 배너
+    const W = this.scale.width, H = this.scale.height;
+    const banner = this.add.text(W/2, 60, '⚔ 투기장 — PK 모드 활성화 ⚔', {
+      fontSize: '18px', fontStyle: 'bold', color: '#ff4444',
+      stroke: '#000', strokeThickness: 4, backgroundColor: '#00000099',
+      padding: { x: 14, y: 6 },
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(70);
+    this.tweens.add({
+      targets: banner, alpha: 0, delay: 3000, duration: 800,
+      onComplete: () => banner.destroy(),
+    });
+
+    // WebSocket 연결
+    this._arenaClient = new ArenaClient({
+      userId:   AuthState.userId   ?? ('guest_' + Math.random().toString(36).slice(2)),
+      username: AuthState.username ?? '게스트',
+      hp:       this.player.hp,
+      maxHp:    this.player.maxHp,
+      level:    this.player.level,
+      onJoin:   (p)                   => this._addOtherPlayer(p),
+      onLeave:  (uid)                 => this._removeOtherPlayer(uid),
+      onMove:   (uid, x, y)           => this._moveOtherPlayer(uid, x, y),
+      onHit:    (atkId, tgtId, dmg, tgtHp) => this._handleArenaHit(atkId, tgtId, dmg, tgtHp),
+      onDead:   (uid, atkId)          => this._handleArenaDead(uid, atkId),
+    });
+  }
+
+  _addOtherPlayer({ userId, username, x, y, hp, maxHp, level }) {
+    if (String(userId) === String(AuthState.userId ?? '')) return;
+    if (this._otherPlayers.has(String(userId))) return;
+
+    const uid = String(userId);
+
+    // 그림자
+    const shadow = this.add.ellipse(x, y + 14, 28, 10, 0x000000, 0.30).setDepth(3);
+
+    // 플레이어와 동일한 스프라이트 사용
+    const sprite = this.add.sprite(x, y, 'player', 0).setDepth(5);
+    sprite.play('player_idle_down');
+
+    const hpBarBg = this.add.rectangle(x, y - 22, 36, 5, 0x660000, 0.85).setDepth(11);
+    const hpBarFg = this.add.rectangle(x - 18, y - 22, 36, 3, 0xff3333, 1)
+      .setOrigin(0, 0.5).setDepth(12);
+
+    const nameLabel = this.add.text(x, y + 28, `${username} Lv.${level}`, {
+      fontSize: '11px', color: '#ffffff', stroke: '#000', strokeThickness: 3,
+      backgroundColor: '#00000055', padding: { x: 4, y: 2 },
+    }).setOrigin(0.5, 0).setDepth(11);
+
+    this._otherPlayers.set(uid, {
+      sprite, shadow, nameLabel, hpBarBg, hpBarFg,
+      hp, maxHp, x, y, prevX: x, prevY: y,
+    });
+  }
+
+  _removeOtherPlayer(userId) {
+    const uid = String(userId);
+    const op = this._otherPlayers.get(uid);
+    if (!op) return;
+    op.sprite?.destroy();
+    op.shadow?.destroy();
+    op.nameLabel?.destroy();
+    op.hpBarBg?.destroy();
+    op.hpBarFg?.destroy();
+    this._otherPlayers.delete(uid);
+  }
+
+  _moveOtherPlayer(userId, x, y) {
+    const op = this._otherPlayers.get(String(userId));
+    if (!op) return;
+    op.x = x; op.y = y;
+  }
+
+  _updateOtherPlayerSprites() {
+    this._otherPlayers.forEach((op) => {
+      if (!op.sprite?.active) return;
+      op.sprite.setPosition(op.x, op.y);
+      op.shadow?.setPosition(op.x, op.y + 14);
+      op.nameLabel.setPosition(op.x, op.y + 28);
+      op.hpBarBg.setPosition(op.x, op.y - 22);
+      const ratio = op.maxHp > 0 ? op.hp / op.maxHp : 1;
+      op.hpBarFg.setPosition(op.x - 18, op.y - 22);
+      op.hpBarFg.setDisplaySize(Math.max(1, 36 * ratio), 3);
+
+      // 이동 방향으로 애니메이션 전환
+      const dx = op.x - op.prevX;
+      const dy = op.y - op.prevY;
+      const moving = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
+      let dir = 'down';
+      if (moving) {
+        if (Math.abs(dx) >= Math.abs(dy)) dir = dx > 0 ? 'right' : 'left';
+        else dir = dy > 0 ? 'down' : 'up';
+      }
+      const isLeft = dir === 'left';
+      op.sprite.setFlipX(isLeft);
+      const baseDir = isLeft ? 'right' : dir;
+      const animKey = moving ? `player_walk_${baseDir}` : `player_idle_${baseDir}`;
+      if (op.sprite.anims.currentAnim?.key !== animKey) op.sprite.play(animKey, true);
+
+      op.prevX = op.x;
+      op.prevY = op.y;
+    });
+  }
+
+  _handleArenaHit(attackerId, targetUserId, damage, targetHp) {
+    const myId = String(AuthState.userId ?? '');
+    if (String(targetUserId) === myId) {
+      // 나를 때림
+      if (damage > 0) {
+        const isCrit = damage > 18;
+        this.player.takeDamage(damage, 0, 0);
+        this._showDmgNum(this.player.x, this.player.y - 20, damage, isCrit, '#ffaaaa');
+      }
+    } else {
+      // 다른 플레이어가 맞음 — HP 업데이트
+      const op = this._otherPlayers.get(String(targetUserId));
+      if (op && damage > 0) {
+        op.hp = targetHp;
+        this._showDmgNum(op.x, op.y - 20, damage, damage > 18, '#ff6666');
+      }
+    }
+  }
+
+  _handleArenaDead(userId, attackerId) {
+    const myId = String(AuthState.userId ?? '');
+    if (String(userId) === myId) {
+      this.onPlayerDead();
+    } else {
+      // 다른 플레이어 사망 연출
+      const op = this._otherPlayers.get(String(userId));
+      if (op) {
+        op.hp = op.maxHp;
+        const deathTxt = this.add.text(op.x, op.y - 40, '💀 KO!', {
+          fontSize: '16px', color: '#ff4444', stroke: '#000', strokeThickness: 3,
+        }).setOrigin(0.5).setDepth(20);
+        this.tweens.add({
+          targets: deathTxt, y: op.y - 80, alpha: 0, duration: 1500,
+          onComplete: () => deathTxt.destroy(),
+        });
+      }
+      // 킬 알림
+      const atkOp = this._otherPlayers.get(String(attackerId));
+      const atkName = String(attackerId) === myId
+        ? (AuthState.username ?? '나')
+        : (atkOp?.nameLabel?.text ?? attackerId);
+      const tgtOp = this._otherPlayers.get(String(userId));
+      const tgtName = tgtOp?.nameLabel?.text ?? userId;
+      const W = this.scale.width;
+      const killTxt = this.add.text(W/2, 90, `${atkName} → ${tgtName} KO!`, {
+        fontSize: '13px', color: '#ffee44', stroke: '#000', strokeThickness: 3,
+        backgroundColor: '#00000088', padding: { x: 8, y: 4 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(70);
+      this.tweens.add({
+        targets: killTxt, alpha: 0, delay: 2500, duration: 600,
+        onComplete: () => killTxt.destroy(),
+      });
+    }
+  }
+
+  _showDmgNum(x, y, dmg, isCrit, color = '#ffff00') {
+    const txt = this.add.text(x, y, isCrit ? `${dmg}!` : `${dmg}`, {
+      fontSize: isCrit ? '18px' : '14px',
+      fontStyle: isCrit ? 'bold' : 'normal',
+      color: isCrit ? '#ffdd00' : color,
+      stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(25);
+    this.tweens.add({
+      targets: txt, y: y - 40, alpha: 0, duration: 900,
+      onComplete: () => txt.destroy(),
     });
   }
 }

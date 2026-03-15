@@ -1,13 +1,5 @@
-/**
- * DatabaseService — API에서 받은 데이터를 메모리에 캐싱
- *
- * 데이터 흐름:
- *   Production : Worker /api/* → D1 쿼리
- *   Local dev  : Vite mock middleware → JSON 파일
- *   Fallback   : API 실패 시 번들된 JSON 파일 사용
- */
 import type { IMonster }    from '../types/IMonster';
-import type { IItem }       from '../types/IItem';
+import type { IItemMaster, IInventoryItem } from '../types/IItem';
 import type { IMap, IPortal } from '../types/IMap';
 
 import FALLBACK_MONSTERS from '../assets/data/monsters.json';
@@ -19,17 +11,18 @@ class DatabaseService {
   private _monsters: Map<string, IMonster> = new Map(
     (FALLBACK_MONSTERS as IMonster[]).map(m => [m.id, m]),
   );
-  private _items: Map<string, IItem> = new Map(
-    (FALLBACK_ITEMS as IItem[]).map(i => [i.id, i]),
+  private _items: Map<string, IItemMaster> = new Map(
+    (FALLBACK_ITEMS as IItemMaster[]).map(i => [i.id, i]),
   );
   private _maps: Map<number, IMap> = new Map(
     (FALLBACK_MAPS as IMap[]).map(m => [m.map_id, m]),
   );
   private _portals: IPortal[] = FALLBACK_PORTALS as IPortal[];
+  private _inventory: IInventoryItem[] = [];
 
   seedFromPreload(
     monsters: IMonster[] | null,
-    items:    IItem[]    | null,
+    items:    IItemMaster[] | null,
     maps:     IMap[]     | null,
     portals:  IPortal[]  | null,
   ): void {
@@ -48,8 +41,8 @@ class DatabaseService {
   getAllMonsters(): IMonster[]                   { return [...this._monsters.values()]; }
 
   // ── Items ─────────────────────────────────────────────────────────────────
-  getItem(id: string): IItem | undefined        { return this._items.get(id); }
-  getAllItems(): IItem[]                         { return [...this._items.values()]; }
+  getItem(id: string): IItemMaster | undefined  { return this._items.get(id); }
+  getAllItems(): IItemMaster[]                   { return [...this._items.values()]; }
 
   // ── Maps ──────────────────────────────────────────────────────────────────
   getMap(mapId: number): IMap | undefined       { return this._maps.get(mapId); }
@@ -59,6 +52,11 @@ class DatabaseService {
   getPortalsByMap(fromMapId: number): IPortal[] {
     return this._portals.filter(p => p.from_map_id === fromMapId);
   }
+
+  // ── Inventory ─────────────────────────────────────────────────────────────
+  addInventoryItem(item: IInventoryItem): void  { this._inventory.push(item); }
+  getInventory(): IInventoryItem[]              { return [...this._inventory]; }
+  setInventory(items: IInventoryItem[]): void   { this._inventory = items; }
 }
 
 export const db = new DatabaseService();

@@ -1,44 +1,13 @@
 [
-  {
-    "id": "snail_shell",
-    "name": "달팽이 껍질",
-    "description": "초록 달팽이의 껍질",
-    "bodyColor": 9139029,
-    "gemColor": 8978312
-  },
-  {
-    "id": "apple",
-    "name": "사과",
-    "description": "싱싱한 빨간 사과",
-    "bodyColor": 14492194,
-    "gemColor": 16737894
-  },
-  {
-    "id": "blue_shell",
-    "name": "파란 껍질",
-    "description": "파란 달팽이의 껍질",
-    "bodyColor": 2250188,
-    "gemColor": 6728447
-  },
-  {
-    "id": "red_potion",
-    "name": "빨간 포션",
-    "description": "HP를 회복하는 포션",
-    "bodyColor": 13373713,
-    "gemColor": 16729156
-  },
-  {
-    "id": "spore_drop",
-    "name": "포자",
-    "description": "스포아의 포자",
-    "bodyColor": 7816328,
-    "gemColor": 13395660
-  },
-  {
-    "id": "orange",
-    "name": "오렌지",
-    "description": "새콤달콤한 오렌지",
-    "bodyColor": 14509568,
-    "gemColor": 16755251
-  }
+  { "id": "snail_shell",    "name": "달팽이 껍질",   "description": "초록 달팽이의 껍질",                      "category": "ETC",     "subType": "MATERIAL",  "reqLv": 0, "sellPrice": 5,   "maxStack": 100, "bodyColor": 9139029,  "gemColor": 8978312,  "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "blue_shell",     "name": "파란 껍질",     "description": "파란 달팽이의 껍질",                      "category": "ETC",     "subType": "MATERIAL",  "reqLv": 0, "sellPrice": 10,  "maxStack": 100, "bodyColor": 2250188,  "gemColor": 6728447,  "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "spore_drop",     "name": "포자",          "description": "스포아의 포자",                           "category": "ETC",     "subType": "MATERIAL",  "reqLv": 0, "sellPrice": 7,   "maxStack": 100, "bodyColor": 7816328,  "gemColor": 13395660, "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "red_potion",     "name": "빨간 포션",     "description": "HP를 회복하는 포션",                      "category": "CONSUME", "subType": "HP_POTION", "reqLv": 0, "sellPrice": 20,  "maxStack": 100, "bodyColor": 13373713, "gemColor": 16729156, "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 50, "mpRecover": 0  },
+  { "id": "orange",         "name": "오렌지",        "description": "새콤달콤한 오렌지",                       "category": "CONSUME", "subType": "HP_POTION", "reqLv": 0, "sellPrice": 15,  "maxStack": 50,  "bodyColor": 14509568, "gemColor": 16755251, "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 30, "mpRecover": 0  },
+  { "id": "blue_potion",    "name": "파란 포션",     "description": "MP를 회복하는 포션",                      "category": "CONSUME", "subType": "MP_POTION", "reqLv": 0, "sellPrice": 20,  "maxStack": 100, "bodyColor": 3364300,  "gemColor": 6724095,  "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 0,  "mpRecover": 30 },
+  { "id": "apple",          "name": "사과",          "description": "싱싱한 빨간 사과",                        "category": "CONSUME", "subType": "HP_POTION", "reqLv": 0, "sellPrice": 10,  "maxStack": 50,  "bodyColor": 14492194, "gemColor": 16737894, "baseAtk": 0,  "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 0, "hpRecover": 20, "mpRecover": 0  },
+  { "id": "old_sword",      "name": "낡은 검",       "description": "낡고 오래된 검이지만 여전히 날이 서있다.", "category": "EQUIP",   "subType": "WEAPON",    "reqLv": 1, "sellPrice": 100, "maxStack": 1,   "bodyColor": 11184810, "gemColor": 14540253, "baseAtk": 10, "baseStr": 0, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 5, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "wooden_staff",   "name": "나무 지팡이",   "description": "나무로 만든 지팡이. 마법사에게 어울린다.", "category": "EQUIP",   "subType": "WEAPON",    "reqLv": 1, "sellPrice": 80,  "maxStack": 1,   "bodyColor": 9133628,  "gemColor": 13934647, "baseAtk": 7,  "baseStr": 0, "baseDex": 0, "baseInt": 2, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 5, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "leather_armor",  "name": "가죽 갑옷",     "description": "가죽으로 만든 갑옷. 몸을 보호해준다.",    "category": "EQUIP",   "subType": "ARMOR",     "reqLv": 1, "sellPrice": 80,  "maxStack": 1,   "bodyColor": 9136404,  "gemColor": 12290099, "baseAtk": 0,  "baseStr": 1, "baseDex": 0, "baseInt": 0, "baseLuk": 0, "baseDef": 5, "maxUpgrade": 5, "hpRecover": 0,  "mpRecover": 0  },
+  { "id": "leather_gloves", "name": "가죽 장갑",     "description": "손을 보호하고 민첩함을 더한다.",          "category": "EQUIP",   "subType": "ACCESSORY", "reqLv": 1, "sellPrice": 60,  "maxStack": 1,   "bodyColor": 6048306,  "gemColor": 10057557, "baseAtk": 0,  "baseStr": 1, "baseDex": 2, "baseInt": 0, "baseLuk": 0, "baseDef": 0, "maxUpgrade": 3, "hpRecover": 0,  "mpRecover": 0  }
 ]

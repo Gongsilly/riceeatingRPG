@@ -1,19 +1,43 @@
-import { db }       from '../services/DatabaseService';
-import type { IItem } from '../types/IItem';
+import { db }                from '../services/DatabaseService';
+import { AuthState }        from '../services/AuthState.js';
+import type { IItemMaster, IInventoryItem, IEquipInstance } from '../types/IItem';
 
 export const ItemRepository = {
-  /**
-   * ID로 아이템 데이터를 조회합니다.
-   * 존재하지 않는 ID면 Error를 던집니다.
-   */
-  getById(id: string): IItem {
-    const item = db.getItem(id);
-    if (!item) throw new Error(`[ItemRepository] Unknown item id: "${id}"`);
+  getByCode(code: string): IItemMaster {
+    const item = db.getItem(code);
+    if (!item) throw new Error(`[ItemRepository] Unknown item code: "${code}"`);
     return item;
   },
 
-  /** 전체 아이템 목록을 반환합니다. */
-  getAll(): IItem[] {
+  getAll(): IItemMaster[] {
     return db.getAllItems();
+  },
+
+  /** 몬스터 처치 시 아이템 줍기 → POST /api/inventory/add → DB INSERT */
+  async addToInventory(itemCode: string): Promise<IInventoryItem> {
+    const master = db.getItem(itemCode);
+    if (!master) throw new Error(`[ItemRepository] Unknown item: ${itemCode}`);
+
+    const res = await fetch('/api/inventory/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: AuthState.userId ?? 'local', item_code: itemCode }),
+    });
+
+    if (!res.ok) throw new Error(`[ItemRepository] /api/inventory/add failed: ${res.status}`);
+
+    const data = await res.json() as { inv_id: number; master: IItemMaster; equip?: IEquipInstance | null };
+
+    const invItem: IInventoryItem = {
+      invId:    data.inv_id,
+      userId:   String(AuthState.userId ?? 'local'),
+      quantity: 1,
+      equipped: false,
+      master:   data.master ?? master,
+      equip:    data.equip ?? undefined,
+    };
+
+    db.addInventoryItem(invItem);
+    return invItem;
   },
 };
