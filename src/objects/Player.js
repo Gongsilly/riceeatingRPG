@@ -41,7 +41,7 @@ export default class Player {
     this.sprite = scene.physics.add.sprite(x, y, 'player', 0);
     this.sprite.setDepth(5);
     this.sprite.body.setSize(22, 20).setOffset(5, 12);
-    this.sprite.body.setCollideWorldBounds(false);
+    this.sprite.body.setCollideWorldBounds(true);
     this.sprite.play('player_idle_down');
 
     this.speed   = 220;
