@@ -1,8 +1,10 @@
 /**
  * Cloudflare Worker — API 라우팅 + 정적 에셋 서빙
  *
- * GET /api/monsters  → D1에서 몬스터 데이터 조회
- * GET /api/items     → D1에서 아이템 데이터 조회
+ * GET /api/monsters  → D1 monsters + drops
+ * GET /api/items     → D1 items
+ * GET /api/maps      → D1 MAP_MASTER
+ * GET /api/portals   → D1 MAP_PORTALS
  * *                  → 정적 에셋(dist/) 서빙
  */
 
@@ -21,6 +23,13 @@ interface DropRow {
 interface ItemRow {
   id: string; name: string; description: string;
   body_color: number; gem_color: number;
+}
+interface MapRow {
+  map_id: number; name: string; bg_key: string; is_town: number;
+}
+interface PortalRow {
+  portal_id: number; from_map_id: number; to_map_id: number;
+  pos_x: number; pos_y: number; target_x: number; target_y: number;
 }
 
 export default {
@@ -52,6 +61,20 @@ export default {
         bodyColor: i.body_color, gemColor: i.gem_color,
       }));
       return Response.json(items, {
+        headers: { 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    if (pathname === '/api/maps') {
+      const { results } = await env.DB.prepare('SELECT * FROM MAP_MASTER').all<MapRow>();
+      return Response.json(results, {
+        headers: { 'Cache-Control': 'public, max-age=300' },
+      });
+    }
+
+    if (pathname === '/api/portals') {
+      const { results } = await env.DB.prepare('SELECT * FROM MAP_PORTALS').all<PortalRow>();
+      return Response.json(results, {
         headers: { 'Cache-Control': 'public, max-age=300' },
       });
     }

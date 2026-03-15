@@ -1,7 +1,9 @@
-import Player    from '../objects/Player.js';
-import Snail     from '../objects/Snail.js';
+import Player      from '../objects/Player.js';
+import Snail       from '../objects/Snail.js';
 import MeleeAttack from '../objects/MeleeAttack.js';
-import Item      from '../objects/Item.js';
+import Item        from '../objects/Item.js';
+import Portal      from '../objects/Portal.js';
+import { MapRepository } from '../repositories/MapRepository';
 
 const MAP_W = 3200;
 const MAP_H = 2400;
@@ -16,37 +18,57 @@ export default class GameScene extends Phaser.Scene {
     this.attacks   = [];
     this.items     = [];
     this.inventory = [];
+    this.portals   = [];
     this._isDead   = false;
+    this._transitioning = false;
   }
 
-  create() {
+  create(data) {
+    // ── 현재 맵 정보 ──
+    const mapId  = data?.mapId  ?? 100000000;
+    const startX = data?.startX ?? MAP_W / 2;
+    const startY = data?.startY ?? MAP_H / 2;
+    this._currentMap = MapRepository.getById(mapId);
+
     // ── 타일맵 배경 ──
     this._buildTilemap();
 
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
 
     // ── 플레이어 ──
-    this.player = new Player(this, MAP_W / 2, MAP_H / 2);
+    this.player = new Player(this, startX, startY);
 
     // ── 카메라 ──
     this.cameras.main.setBounds(0, 0, MAP_W, MAP_H);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
-    // ── 몬스터 스폰 ──
-    const spawnConfig = [
-      { type: 'green_snail', count: 15 },
-      { type: 'blue_snail',  count: 10 },
-      { type: 'spore',       count: 8  },
-    ];
-    spawnConfig.forEach(({ type, count }) => {
-      for (let i = 0; i < count; i++) {
-        this.snails.push(new Snail(this,
-          Phaser.Math.Between(200, MAP_W - 200),
-          Phaser.Math.Between(200, MAP_H - 200),
-          type,
-        ));
-      }
+    // ── 포탈 생성 (D1에서 로드) ──
+    const portalDataList = MapRepository.getPortals(mapId);
+    portalDataList.forEach(pd => {
+      const toMap = MapRepository.getById(pd.to_map_id);
+      this.portals.push(new Portal(this, pd, toMap?.name ?? '???'));
     });
+
+    // ── 몬스터 스폰 (마을 맵은 스폰 안 함) ──
+    if (!this._currentMap.is_town) {
+      const spawnConfig = [
+        { type: 'green_snail', count: 15 },
+        { type: 'blue_snail',  count: 10 },
+        { type: 'spore',       count: 8  },
+      ];
+      spawnConfig.forEach(({ type, count }) => {
+        for (let i = 0; i < count; i++) {
+          this.snails.push(new Snail(this,
+            Phaser.Math.Between(200, MAP_W - 200),
+            Phaser.Math.Between(200, MAP_H - 200),
+            type,
+          ));
+        }
+      });
+    }
+
+    // ── 맵 이름 표시 ──
+    this._showMapName(this._currentMap.name);
 
     this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     this._gamepadPointers = new Set();
@@ -102,7 +124,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.016', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.017', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -365,6 +387,15 @@ export default class GameScene extends Phaser.Scene {
     this.items = this.items.filter(i => !i.picked);
     this.items.forEach(i => i.updateTooltipPos());
 
+    // 포탈 충돌 체크
+    if (!this._transitioning) {
+      this.portals.forEach(portal => {
+        const inRange = portal.checkOverlap(this.player);
+        portal.showHint(inRange);
+        if (inRange) this._enterPortal(portal);
+      });
+    }
+
     // 줍기 버튼 가시성 (모바일)
     if (this._drawLootBtn) {
       const near = this.items.some(i =>
@@ -392,6 +423,40 @@ export default class GameScene extends Phaser.Scene {
     this._expBarFill.width = this._expBarWidth * expR;
     const pct = p.level >= 20 ? 'MAX' : `${Math.floor(expR * 100)}%`;
     this._expText.setText(`Lv.${p.level}  ${p.currentExp} / ${p.maxExp} EXP  (${pct})`);
+  }
+
+  // ── 포탈 진입 ────────────────────────────────────────────────────────────────
+  _enterPortal(portal) {
+    portal._used = true;
+    this._transitioning = true;
+    this.cameras.main.fade(400, 0, 0, 0, false, (_cam, progress) => {
+      if (progress < 1) return;
+      this.portals = [];
+      this.scene.restart({
+        mapId:  portal.toMapId,
+        startX: portal.targetX,
+        startY: portal.targetY,
+      });
+    });
+  }
+
+  // ── 맵 이름 표시 ─────────────────────────────────────────────────────────────
+  _showMapName(name) {
+    const W = this.scale.width;
+    const txt = this.add.text(W / 2, 60, name, {
+      fontSize: '22px', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(90).setAlpha(0);
+
+    this.tweens.add({
+      targets: txt, alpha: 1, duration: 400, ease: 'Power2',
+      onComplete: () => {
+        this.tweens.add({
+          targets: txt, alpha: 0, duration: 800, delay: 1200,
+          onComplete: () => txt.destroy(),
+        });
+      },
+    });
   }
 
   // ── 스탯창 ──────────────────────────────────────────────────────────────────

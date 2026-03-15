@@ -19,6 +19,14 @@ export default defineConfig({
           res.setHeader('Content-Type', 'application/json');
           res.end(readFileSync(resolve(__dirname, 'src/assets/data/items.json')));
         });
+        server.middlewares.use('/api/maps', (_req, res) => {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(readFileSync(resolve(__dirname, 'src/assets/data/maps.json')));
+        });
+        server.middlewares.use('/api/portals', (_req, res) => {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(readFileSync(resolve(__dirname, 'src/assets/data/portals.json')));
+        });
       },
     },
   ],

@@ -13,6 +13,8 @@ export default class PreloadScene extends Phaser.Scene {
     // Fallback:   API 실패 시 DatabaseService 내 번들 JSON 사용
     this.load.json('monsters_data', '/api/monsters');
     this.load.json('items_data',    '/api/items');
+    this.load.json('maps_data',     '/api/maps');
+    this.load.json('portals_data',  '/api/portals');
   }
 
   create() {
@@ -20,6 +22,8 @@ export default class PreloadScene extends Phaser.Scene {
     db.seedFromPreload(
       this.cache.json.get('monsters_data') ?? null,
       this.cache.json.get('items_data')    ?? null,
+      this.cache.json.get('maps_data')     ?? null,
+      this.cache.json.get('portals_data')  ?? null,
     );
 
     this._genTileset();
