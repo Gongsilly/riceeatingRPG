@@ -1,6 +1,6 @@
 import Player    from '../objects/Player.js';
 import Snail     from '../objects/Snail.js';
-import MagicClaw from '../objects/MagicClaw.js';
+import MeleeAttack from '../objects/MeleeAttack.js';
 import Item      from '../objects/Item.js';
 
 const MAP_W = 3200;
@@ -13,10 +13,9 @@ export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
     this.snails    = [];
-    this.claws     = [];
+    this.attacks   = [];
     this.items     = [];
     this.inventory = [];
-    this.hitSnails = new Set();
     this._isDead   = false;
   }
 
@@ -62,9 +61,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (ptr) => {
       if (ptr.rightButtonDown()) {
-        const claw = new MagicClaw(this, this.player.x, this.player.y, ptr.worldX, ptr.worldY);
-        this.claws.push(claw);
-        this.hitSnails = new Set();
+        this._doMeleeAttack(ptr.worldX, ptr.worldY);
       }
     });
 
@@ -85,7 +82,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.008', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.009', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -183,7 +180,7 @@ export default class GameScene extends Phaser.Scene {
     const atkR = 40, padR = 30;
     const ax = W - padR - atkR, ay = H - padR - atkR;
     const atkGfx = this.add.graphics().setScrollFactor(0).setDepth(60);
-    this.add.text(ax, ay, '✦\n클로', {
+    this.add.text(ax, ay, '⚔\n공격', {
       fontSize: '13px', color: '#fff', fontStyle: 'bold', align: 'center',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
 
@@ -204,8 +201,7 @@ export default class GameScene extends Phaser.Scene {
       if (navigator.vibrate) navigator.vibrate(30);
       const tx = this.player.x + this.player.facingX * 300;
       const ty = this.player.y + this.player.facingY * 300;
-      this.claws.push(new MagicClaw(this, this.player.x, this.player.y, tx, ty));
-      this.hitSnails = new Set();
+      this._doMeleeAttack(tx, ty);
     });
     atkZone.on('pointerup',  () => drawAtk(false));
     atkZone.on('pointerout', () => drawAtk(false));
@@ -347,21 +343,9 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    // 매직클로 업데이트 & 히트 체크
-    this.claws = this.claws.filter(c => c.alive);
-    this.claws.forEach(claw => {
-      claw.update(delta);
-      this.snails.forEach(snail => {
-        const key = `${claw}:${snail}`;
-        if (!this.hitSnails.has(key) && claw.checkHit(snail)) {
-          this.hitSnails.add(key);
-          const isCritical = Math.random() < 0.20;
-          const base = Phaser.Math.Between(12, 25);
-          const dmg  = isCritical ? Math.floor(base * 1.5) : base;
-          snail.takeDamage(dmg, claw.nx, claw.ny, isCritical);
-        }
-      });
-    });
+    // 근접 공격 애니메이션 업데이트 (히트 판정은 _doMeleeAttack에서 즉시 처리)
+    this.attacks = this.attacks.filter(a => a.alive);
+    this.attacks.forEach(a => a.update(delta));
 
     // 아이템
     this.items = this.items.filter(i => !i.picked);
@@ -531,6 +515,38 @@ export default class GameScene extends Phaser.Scene {
     this._apTxt.setText(`AP: ${p.ap}`);
     ['str', 'dex', 'int', 'luk'].forEach(k => {
       this._statValueTxts[k].setText(`${p[k]}`);
+    });
+  }
+
+  // ── 근접 공격 실행 ───────────────────────────────────────────────────────────
+  _doMeleeAttack(targetX, targetY) {
+    // 플레이어 → 타겟 방향 계산
+    const dx  = targetX - this.player.x;
+    const dy  = targetY - this.player.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const fx  = dx / len;
+    const fy  = dy / len;
+
+    // 플레이어 방향 업데이트
+    this.player.facingX = fx;
+    this.player.facingY = fy;
+
+    const attack = new MeleeAttack(this, this.player.x, this.player.y, fx, fy);
+    this.attacks.push(attack);
+
+    // 즉시 히트 판정 (부채꼴 안의 모든 몬스터)
+    this.snails.filter(s => s.alive).forEach(snail => {
+      if (!attack.checkHit(snail)) return;
+
+      const isCritical = Math.random() < 0.20;
+      const base = Phaser.Math.Between(12, 25);
+      const dmg  = isCritical ? Math.floor(base * 1.5) : base;
+
+      // 넉백: 플레이어→몬스터 방향으로 밀기
+      const kbx = snail.sprite.x - this.player.x;
+      const kby = snail.sprite.y - this.player.y;
+      const kbl = Math.sqrt(kbx * kbx + kby * kby) || 1;
+      snail.takeDamage(dmg, kbx / kbl, kby / kbl, isCritical);
     });
   }
 
