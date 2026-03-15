@@ -78,6 +78,7 @@ export default class GameScene extends Phaser.Scene {
     this._buildExpBar();
     this._buildGamepad();
     if (IS_MOBILE) this._buildLootButton();
+    this._buildStatWindow();
   }
 
   // ── 스테이터스 UI (HP/MP, 좌상단) ─────────────────────────────────────────
@@ -88,7 +89,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.004', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.005', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -120,6 +121,21 @@ export default class GameScene extends Phaser.Scene {
     this._infoTxt = this.add.text(lx, my + 18, '', {
       fontSize: '11px', color: '#cccccc', backgroundColor: '#00000077', padding: {x:4,y:2},
     }).setScrollFactor(0).setDepth(50);
+
+    // STAT 버튼
+    const statBtnY = my + 18 + 22;
+    const statBtn = this.add.rectangle(lx + 28, statBtnY, 56, 20, 0x1a2a44, 0.92)
+      .setScrollFactor(0).setDepth(50).setStrokeStyle(1, 0x4466aa)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(lx + 28, statBtnY, 'STAT', {
+      fontSize: '11px', color: '#88bbff', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(51);
+    statBtn.on('pointerover',  () => statBtn.setFillStyle(0x2a3d60, 0.95));
+    statBtn.on('pointerout',   () => statBtn.setFillStyle(0x1a2a44, 0.92));
+    statBtn.on('pointerdown', (ptr) => {
+      this._gamepadPointers.add(ptr.id);
+      this._toggleStatWindow();
+    });
   }
 
   // ── EXP 바 (하단 중앙) ──────────────────────────────────────────────────────
@@ -382,5 +398,110 @@ export default class GameScene extends Phaser.Scene {
     this._expBarFill.width = this._expBarWidth * expR;
     const pct = p.level >= 20 ? 'MAX' : `${Math.floor(expR * 100)}%`;
     this._expText.setText(`Lv.${p.level}  ${p.currentExp} / ${p.maxExp} EXP  (${pct})`);
+  }
+
+  // ── 스탯창 ──────────────────────────────────────────────────────────────────
+  _buildStatWindow() {
+    const W  = this.scale.width;
+    const H  = this.scale.height;
+    const cx = W / 2;
+    const cy = H / 2 - 20;
+    const pw = 260, ph = 310;
+
+    this._statWinObjs = [];
+    const reg = (obj) => { this._statWinObjs.push(obj); return obj; };
+
+    // 배경
+    reg(this.add.rectangle(cx, cy, pw, ph, 0x080e1c, 0.93)
+      .setScrollFactor(0).setDepth(70).setStrokeStyle(2, 0x4455bb, 0.9));
+
+    // 타이틀
+    reg(this.add.text(cx, cy - ph / 2 + 20, '⚔  STAT', {
+      fontSize: '16px', fontStyle: 'bold', color: '#99bbff',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(71));
+
+    // AP 텍스트
+    this._apTxt = reg(this.add.text(cx, cy - ph / 2 + 42, 'AP: 0', {
+      fontSize: '14px', color: '#ffee44', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(71));
+
+    // 구분선
+    reg(this.add.rectangle(cx, cy - ph / 2 + 57, pw - 24, 1, 0x334466)
+      .setScrollFactor(0).setDepth(71));
+
+    // 스탯 행 (STR / DEX / INT / LUK)
+    const statDefs = [
+      { label: 'STR', key: 'str', color: '#ff7766' },
+      { label: 'DEX', key: 'dex', color: '#55ffaa' },
+      { label: 'INT', key: 'int', color: '#66aaff' },
+      { label: 'LUK', key: 'luk', color: '#ffcc44' },
+    ];
+    this._statValueTxts = {};
+
+    statDefs.forEach(({ label, key, color }, i) => {
+      const ry = cy - ph / 2 + 86 + i * 54;
+
+      reg(this.add.text(cx - 95, ry, label, {
+        fontSize: '15px', fontStyle: 'bold', color,
+      }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(71));
+
+      const valTxt = reg(this.add.text(cx + 5, ry, '5', {
+        fontSize: '15px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(71));
+      this._statValueTxts[key] = valTxt;
+
+      // + 버튼
+      const btnBg = reg(this.add.rectangle(cx + 85, ry, 42, 36, 0x1e3a5f, 0.9)
+        .setScrollFactor(0).setDepth(71)
+        .setStrokeStyle(1, 0x3d6fa0)
+        .setInteractive({ useHandCursor: true }));
+      reg(this.add.text(cx + 85, ry, '+', {
+        fontSize: '22px', fontStyle: 'bold', color: '#aaddff',
+      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(72));
+
+      btnBg.on('pointerover',  () => btnBg.setFillStyle(0x2e5580, 0.95));
+      btnBg.on('pointerout',   () => btnBg.setFillStyle(0x1e3a5f, 0.90));
+      btnBg.on('pointerdown', (ptr) => {
+        this._gamepadPointers.add(ptr.id);
+        if (this.player.ap <= 0) return;
+        this.player.ap--;
+        this.player[key]++;
+        this._updateStatWindow();
+        if (navigator.vibrate) navigator.vibrate(15);
+      });
+    });
+
+    // 닫기 버튼
+    const closeBg = reg(this.add.rectangle(cx + pw / 2 - 18, cy - ph / 2 + 18, 28, 28, 0x3a1020, 0.9)
+      .setScrollFactor(0).setDepth(72)
+      .setStrokeStyle(1, 0x883344)
+      .setInteractive({ useHandCursor: true }));
+    reg(this.add.text(cx + pw / 2 - 18, cy - ph / 2 + 18, '✕', {
+      fontSize: '13px', color: '#ff9999',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(73));
+    closeBg.on('pointerover',  () => closeBg.setFillStyle(0x551830, 0.95));
+    closeBg.on('pointerout',   () => closeBg.setFillStyle(0x3a1020, 0.90));
+    closeBg.on('pointerdown', (ptr) => {
+      this._gamepadPointers.add(ptr.id);
+      this._toggleStatWindow();
+    });
+
+    this._statWinObjs.forEach(o => o.setVisible(false));
+    this._statWinVisible = false;
+  }
+
+  _toggleStatWindow() {
+    this._statWinVisible = !this._statWinVisible;
+    this._statWinObjs.forEach(o => o.setVisible(this._statWinVisible));
+    if (this._statWinVisible) this._updateStatWindow();
+  }
+
+  _updateStatWindow() {
+    if (!this._apTxt) return;
+    const p = this.player;
+    this._apTxt.setText(`AP: ${p.ap}`);
+    ['str', 'dex', 'int', 'luk'].forEach(k => {
+      this._statValueTxts[k].setText(`${p[k]}`);
+    });
   }
 }

@@ -15,6 +15,13 @@ export default class Player {
     this.currentExp = 0;
     this.maxExp     = EXP_TABLE[1];
 
+    // ── 스탯 ──
+    this.str = 5;
+    this.dex = 5;
+    this.int = 5;
+    this.luk = 5;
+    this.ap  = 0;
+
     // ── 무적 상태 ──
     this.isInvincible = false;
     this._blinkTween  = null;
@@ -116,6 +123,9 @@ export default class Player {
   }
 
   _onLevelUp() {
+    this.ap += 5;
+    this.scene._updateStatWindow?.();
+
     const txt = this.scene.add.text(this.sprite.x, this.sprite.y - 40, `LEVEL UP!  Lv.${this.level}`, {
       fontSize: '20px', fontStyle: 'bold',
       color: '#ffff00', stroke: '#000', strokeThickness: 4,
