@@ -125,8 +125,15 @@ export default class Snail {
     this.sprite.body.setEnable(false);
     this.sprite.body.setVelocity(0, 0);
 
-    // 경험치 & 드롭 즉시 처리
+    // 경험치 & 메소 드롭
     this.scene.player.gainExp(this.monsterData.exp);
+    const mesoAmt = Phaser.Math.Between(
+      this.monsterData.minMesos ?? 2,
+      this.monsterData.maxMesos ?? 6,
+    );
+    this.scene.player.mesos += mesoAmt;
+    this.scene._showMesoGain?.(mesoAmt, spawnX, spawnY);
+    this.scene._updateMesosDisplay?.();
     this.monsterData.drops.forEach(drop => {
       if (Math.random() < drop.chance) {
         this.scene.spawnItem(spawnX, spawnY, drop.itemId);

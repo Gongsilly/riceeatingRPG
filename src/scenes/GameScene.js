@@ -9,6 +9,8 @@ import { AuthState }     from '../services/AuthState.js';
 import { EXP_TABLE }     from '../constants/gameData';
 import SaveManager      from '../services/SaveManager.js';
 import ArenaClient   from '../services/ArenaClient.js';
+import NPC           from '../objects/NPC.js';
+import ShopUI        from '../objects/ShopUI.js';
 
 const DEFAULT_MAP_W = 1920;
 const DEFAULT_MAP_H = 1440;
@@ -30,6 +32,7 @@ export default class GameScene extends Phaser.Scene {
     this._isArena       = false;
     this._arenaClient   = null;
     this._otherPlayers  = new Map();
+    this.npcs           = [];
   }
 
   create(data) {
@@ -47,6 +50,9 @@ export default class GameScene extends Phaser.Scene {
     this._isArena        = false;
     this._arenaClient    = null;
     this._otherPlayers   = new Map();
+    this.npcs            = [];
+    this._dialogueUI     = null;
+    this._shopUI         = null;
 
     // ── 현재 맵 정보 ──
     const mapId  = data?.mapId  ?? 100000000;
@@ -80,7 +86,8 @@ export default class GameScene extends Phaser.Scene {
       this.player.dex        = cs.dex ?? 4;
       this.player.int        = cs.int ?? 4;
       this.player.luk        = cs.luk ?? 4;
-      this.player.ap         = cs.ap  ?? 0;
+      this.player.ap         = cs.ap    ?? 0;
+      this.player.mesos      = cs.mesos ?? 0;
     }
 
     // ── 카메라 ──
@@ -164,6 +171,7 @@ export default class GameScene extends Phaser.Scene {
     this._loadInventory();       // 로그인 계정 인벤토리 DB 로드
     this._buildSaveSystem();
     if (this._isArena) this._initArena();
+    this._spawnNPCs();
     this._buildLighting();
 
     // 포탈 쿨다운 해제 (스폰 직후 포탈 즉시 진입 방지)
@@ -178,7 +186,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.036', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.037', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 
@@ -212,13 +220,18 @@ export default class GameScene extends Phaser.Scene {
     this._statusBarW = barW;
     this._statusLx   = lx;
 
+    // 메소 표시
+    this._mesosTxt = this.add.text(lx, my + 18, `💰 ${this.player.mesos} 메소`, {
+      fontSize: '10px', color: '#ffcc44', backgroundColor: '#00000077', padding: {x:4,y:2},
+    }).setScrollFactor(0).setDepth(50);
+
     // 몬스터/인벤토리 텍스트
-    this._infoTxt = this.add.text(lx, my + 18, '', {
+    this._infoTxt = this.add.text(lx, my + 34, '', {
       fontSize: '11px', color: '#cccccc', backgroundColor: '#00000077', padding: {x:4,y:2},
     }).setScrollFactor(0).setDepth(50);
 
     // STAT 버튼
-    const statBtnY = my + 18 + 22;
+    const statBtnY = my + 34 + 22;
     const statBtn = this.add.rectangle(lx + 28, statBtnY, 56, 20, 0x1a2a44, 0.92)
       .setScrollFactor(0).setDepth(50).setStrokeStyle(1, 0x4466aa)
       .setInteractive({ useHandCursor: true });
@@ -529,6 +542,9 @@ export default class GameScene extends Phaser.Scene {
       this._updateOtherPlayerSprites();
     }
 
+    // NPC 근접 힌트
+    this.npcs.forEach(npc => npc.showHint(npc.checkProximity(this.player)));
+
     // 포탈 충돌 체크
     if (!this._transitioning && !this._portalCooldown) {
       this.portals.forEach(portal => {
@@ -605,7 +621,7 @@ export default class GameScene extends Phaser.Scene {
       mp: p.mp, maxMp: p.maxMp,
       str: p.str, dex: p.dex,
       int: p.int, luk: p.luk,
-      ap:  p.ap,
+      ap:  p.ap, mesos: p.mesos,
       mapId: mapId ?? this._currentMap.map_id,
       posX:  posX  ?? p.x,
       posY:  posY  ?? p.y,
@@ -624,7 +640,7 @@ export default class GameScene extends Phaser.Scene {
         hp:  p.hp,  mp:  p.mp,
         str: p.str, dex: p.dex,
         int: p.int, luk: p.luk,
-        ap:  p.ap,
+        ap:  p.ap,  mesos: p.mesos,
         map_id: this._currentMap?.map_id ?? 100000000,
         pos_x:  p.x,
         pos_y:  p.y,
@@ -677,6 +693,10 @@ export default class GameScene extends Phaser.Scene {
     this._arenaClient = null;
     this._saveManager?.destroy();
     this._saveManager = null;
+    this._closeDialogue();
+    this._shopUI?.destroy();
+    this.npcs.forEach(n => n.destroy());
+    this.npcs = [];
   }
 
   // ── 맵 이름 표시 ─────────────────────────────────────────────────────────────
@@ -970,10 +990,50 @@ export default class GameScene extends Phaser.Scene {
       return data;
     }
 
-    // 일반 맵: 중앙 十자 경로
+    const mapId = this._currentMap?.map_id;
+
+    // 사우스페리: 모래 + 물 + 판자 선착장
+    if (mapId === 100000003) {
+      const waterRow = Math.floor(ROWS * 0.82);
+      const dockR0   = Math.floor(ROWS * 0.68);
+      const dockC0   = Math.floor(COLS * 0.38);
+      const dockC1   = Math.ceil(COLS * 0.62);
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+          if (r >= waterRow)                              row.push(9);  // 물
+          else if (r >= dockR0 && c >= dockC0 && c <= dockC1) row.push(10); // 판자
+          else                                            row.push(8);  // 모래
+        }
+        data.push(row);
+      }
+      return data;
+    }
+
+    // 암허스트: 잔디 + 코블스톤 경로
+    if (mapId === 100000000) {
+      const midR0 = Math.floor(ROWS * 0.46), midR1 = Math.ceil(ROWS * 0.54);
+      const midC0 = Math.floor(COLS * 0.46), midC1 = Math.ceil(COLS * 0.54);
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+          const onHPath = r >= midR0 && r <= midR1;
+          const onVPath = c >= midC0 && c <= midC1;
+          if (onHPath || onVPath) {
+            row.push(7); // 코블스톤
+          } else {
+            const h = (c * 31 + r * 17) % 100;
+            row.push(h < 38 ? 1 : h < 68 ? 2 : h < 85 ? 3 : 6);
+          }
+        }
+        data.push(row);
+      }
+      return data;
+    }
+
+    // 필드 맵: 잔디 + 흙 경로
     const midR0 = Math.floor(ROWS * 0.46), midR1 = Math.ceil(ROWS * 0.54);
     const midC0 = Math.floor(COLS * 0.46), midC1 = Math.ceil(COLS * 0.54);
-
     for (let r = 0; r < ROWS; r++) {
       const row = [];
       for (let c = 0; c < COLS; c++) {
@@ -983,10 +1043,7 @@ export default class GameScene extends Phaser.Scene {
           row.push(4 + ((c + r) % 2));
         } else {
           const h = (c * 31 + r * 17) % 100;
-          if (h < 38)      row.push(1);
-          else if (h < 68) row.push(2);
-          else if (h < 85) row.push(3);
-          else             row.push(6);
+          row.push(h < 38 ? 1 : h < 68 ? 2 : h < 85 ? 3 : 6);
         }
       }
       data.push(row);
@@ -1300,16 +1357,49 @@ export default class GameScene extends Phaser.Scene {
 
     const rng = (min, max) => Phaser.Math.Between(min, max);
     const W = this._mapW, H = this._mapH;
+    const mapId = this._currentMap?.map_id;
+
+    if (mapId === 100000003) {
+      // ── 사우스페리: 배 + 창고 + 야자수 ──
+      this.add.image(1440, 900, 'ship').setDepth(1.8);
+      this.add.image(320, 850, 'warehouse').setDepth(1.8);
+      // 야자수 (해안선)
+      [[180,1040],[340,1080],[520,1020],[680,1060],[820,1000],
+       [1100,1030],[1260,1070],[1640,1010],[1780,1060]].forEach(([x,y]) => {
+        this.add.image(x, y, 'palm_tree').setDepth(y * 0.001 + 0.5);
+      });
+      // 테두리 야자수
+      [[80,300],[80,600],[80,900],[1840,300],[1840,600],[1840,900]].forEach(([x,y]) => {
+        this.add.image(x, y, 'palm_tree').setDepth(y * 0.001 + 0.5);
+      });
+      return;
+    }
+
+    if (mapId === 100000000) {
+      // ── 암허스트: 집 + 상점 + 나무 ──
+      this.add.image(480, 720, 'house_village').setDepth(1.5);
+      this.add.image(960, 560, 'house_shop').setDepth(1.5);
+      this.add.image(1440, 720, 'house_village').setDepth(1.5);
+      // 주변 나무 (경로 피함)
+      [[150,200],[300,150],[550,180],[750,200],[1100,150],[1300,180],[1600,200],[1750,150],
+       [150,1200],[300,1250],[550,1200],[750,1230],[1100,1250],[1300,1200],[1600,1230],[1750,1250],
+       [80,500],[80,900],[1840,500],[1840,900],
+       [350,420],[1570,420],[350,1000],[1570,1000]].forEach(([x,y]) => {
+        this.add.image(x, y, 'tree').setDepth(y * 0.001 + 0.3);
+      });
+      return;
+    }
+
+    // ── 필드 맵: 나무만 배치 ──
     const border      = Math.max(16, Math.floor(W * 0.06));
     const innerBorder = Math.max(border + 16, Math.floor(W * 0.12));
     const sideCount   = Math.max(4,  Math.floor(W * H / 40000));
     const topCount    = Math.max(3,  Math.floor(W * H / 55000));
     const scatCount   = Math.max(4,  Math.floor(W * H / 50000));
     const positions = [];
-
     for (let i = 0; i < sideCount; i++) {
-      positions.push([rng(border, innerBorder),           rng(border, H - border)]);
-      positions.push([rng(W - innerBorder, W - border),   rng(border, H - border)]);
+      positions.push([rng(border, innerBorder),          rng(border, H - border)]);
+      positions.push([rng(W - innerBorder, W - border),  rng(border, H - border)]);
     }
     for (let i = 0; i < topCount; i++) {
       positions.push([rng(innerBorder, W - innerBorder), rng(border, innerBorder)]);
@@ -1499,5 +1589,134 @@ export default class GameScene extends Phaser.Scene {
       targets: txt, y: y - 40, alpha: 0, duration: 900,
       onComplete: () => txt.destroy(),
     });
+  }
+
+  // ── NPC 스폰 ─────────────────────────────────────────────────────────────
+  _spawnNPCs() {
+    this.npcs.forEach(n => n.destroy());
+    this.npcs = [];
+    const mapId = this._currentMap?.map_id;
+
+    const NPC_DATA = {
+      100000000: [
+        { key: 'npc_elder', name: '마을 장로', type: 'talk', x: 400, y: 740,
+          dialogue: ['어서오게, 젊은 모험가여.', '이 마을 암허스트에 온 것을 환영하네.', '남쪽으로 내려가면 사우스페리가 있지. 배를 타고 빅토리아 아일랜드로 갈 수 있다네.'] },
+        { key: 'npc_merchant', name: '잡화상인', type: 'shop', x: 910, y: 560,
+          shopName: '암허스트 잡화점',
+          items: [
+            { code: 'hp_potion', name: 'HP 포션',  price: 30, description: 'HP를 50 회복합니다.' },
+            { code: 'mp_potion', name: 'MP 포션',  price: 20, description: 'MP를 30 회복합니다.' },
+          ] },
+        { key: 'npc_villager', name: '마을 주민', type: 'talk', x: 1390, y: 730,
+          dialogue: ['이 마을은 평화롭고 조용한 곳이에요.', '하지만 북쪽 들판에는 달팽이들이 많으니 조심하세요!'] },
+        { key: 'npc_villager', name: '여행자', type: 'talk', x: 700, y: 630,
+          dialogue: ['저도 모험을 꿈꾸며 이 마을에 왔어요.', '동쪽 들판에서 파란 달팽이를 처음 봤을 때 정말 놀랐답니다.'] },
+      ],
+      100000003: [
+        { key: 'npc_navigator', name: '항해사', type: 'shop', x: 1380, y: 870,
+          shopName: '빅토리아 아일랜드행',
+          items: [
+            { code: 'ferry_ticket', name: '항해 티켓', price: 150, description: '빅토리아 아일랜드로 출발합니다.' },
+          ] },
+        { key: 'npc_harbor', name: '항구 관리인', type: 'talk', x: 350, y: 840,
+          dialogue: ['사우스페리에 오신 것을 환영합니다.', '저 큰 배를 타면 빅토리아 아일랜드로 갈 수 있어요.', '항해사를 찾아가 티켓을 구매하세요.'] },
+        { key: 'npc_merchant', name: '항구 상인', type: 'shop', x: 960, y: 990,
+          shopName: '항구 상점',
+          items: [
+            { code: 'hp_potion', name: 'HP 포션', price: 30, description: 'HP를 50 회복합니다.' },
+            { code: 'mp_potion', name: 'MP 포션', price: 20, description: 'MP를 30 회복합니다.' },
+          ] },
+      ],
+    };
+
+    (NPC_DATA[mapId] ?? []).forEach(cfg => {
+      this.npcs.push(new NPC(this, cfg.x, cfg.y, cfg));
+    });
+  }
+
+  // ── NPC 상호작용 ──────────────────────────────────────────────────────────
+  _interactNPC(npc) {
+    if (this._shopUI)     { this._shopUI.destroy();  return; }
+    if (this._dialogueUI) { this._closeDialogue();   return; }
+    if (npc.config.type === 'shop') {
+      this._openShop(npc.config);
+    } else {
+      this._openDialogue(npc.config);
+    }
+  }
+
+  _openDialogue(config) {
+    if (this._dialogueUI) this._closeDialogue();
+    const W = this.scale.width, H = this.scale.height;
+    const panH = 116, panY = H - panH / 2 - 10;
+    let lineIdx = 0;
+    const lines = config.dialogue ?? ['...'];
+    const objs = [];
+    const reg = (o) => { objs.push(o); return o; };
+
+    reg(this.add.rectangle(W/2, panY, W - 20, panH, 0x06101e, 0.93)
+      .setScrollFactor(0).setDepth(85).setStrokeStyle(1, 0x4466aa, 0.9));
+    reg(this.add.text(20, panY - panH/2 + 14, config.name, {
+      fontSize: '13px', fontStyle: 'bold', color: '#ffcc44',
+      stroke: '#000', strokeThickness: 2,
+    }).setScrollFactor(0).setDepth(86));
+
+    const dlgTxt = reg(this.add.text(20, panY - panH/2 + 34, lines[0], {
+      fontSize: '12px', color: '#ffffff', wordWrap: { width: W - 60 },
+    }).setScrollFactor(0).setDepth(86));
+
+    const btnTxt = reg(this.add.text(W - 20, panY + panH/2 - 12, lines.length > 1 ? '다음 ▶' : '닫기 ✕', {
+      fontSize: '11px', color: '#88aaff',
+    }).setOrigin(1, 1).setScrollFactor(0).setDepth(86).setInteractive({ useHandCursor: true }));
+
+    btnTxt.on('pointerdown', (_ptr, _lx, _ly, event) => {
+      event?.stopPropagation?.();
+      lineIdx++;
+      if (lineIdx >= lines.length) {
+        this._closeDialogue();
+      } else {
+        dlgTxt.setText(lines[lineIdx]);
+        if (lineIdx === lines.length - 1) btnTxt.setText('닫기 ✕');
+      }
+    });
+
+    this._dialogueUI = { objs };
+  }
+
+  _closeDialogue() {
+    this._dialogueUI?.objs.forEach(o => { try { o.destroy(); } catch (_) {} });
+    this._dialogueUI = null;
+  }
+
+  _openShop(config) {
+    this._shopUI = new ShopUI(this, this.player, config);
+  }
+
+  async _buyShopItem(code) {
+    if (!AuthState.userId || AuthState.isGuest) return;
+    try {
+      await fetch('/api/inventory/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: AuthState.userId, item_code: code, qty: 1 }),
+      });
+      await this._loadInventory();
+    } catch (_) {}
+  }
+
+  // ── 메소 UI 헬퍼 ─────────────────────────────────────────────────────────
+  _showMesoGain(amount, x, y) {
+    const txt = this.add.text(x, y - 10, `+${amount} 메소`, {
+      fontSize: '14px', fontStyle: 'bold',
+      color: '#ffcc44', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(15);
+    this.tweens.add({
+      targets: txt, y: y - 55, alpha: 0, duration: 1100,
+      onComplete: () => txt.destroy(),
+    });
+  }
+
+  _updateMesosDisplay() {
+    this._mesosTxt?.setText(`💰 ${this.player.mesos} 메소`);
   }
 }

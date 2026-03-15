@@ -16,11 +16,12 @@ export default class Player {
     this.maxExp     = EXP_TABLE[1];
 
     // ── 스탯 포인트 ──
-    this.str = 5;
-    this.dex = 5;
-    this.int = 5;
-    this.luk = 5;
-    this.ap  = 0;
+    this.str   = 5;
+    this.dex   = 5;
+    this.int   = 5;
+    this.luk   = 5;
+    this.ap    = 0;
+    this.mesos = 0;
 
     // ── 무적 상태 ──
     this.isInvincible = false;

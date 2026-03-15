@@ -45,7 +45,7 @@ interface CharStatsRow {
   user_id: number; current_level: number; current_exp: number;
   hp: number; mp: number;
   str: number; dex: number; int_stat: number; luk: number;
-  ap: number;
+  ap: number; mesos: number;
   map_id: number; pos_x: number; pos_y: number;
 }
 interface PortalRow {
@@ -396,7 +396,8 @@ export default {
         hp:  stats.hp,  mp:  stats.mp,
         str: stats.str, dex: stats.dex,
         int: stats.int_stat, luk: stats.luk,
-        ap:  stats.ap ?? 0,
+        ap:    stats.ap    ?? 0,
+        mesos: stats.mesos ?? 0,
         mapId: stats.map_id, posX: stats.pos_x, posY: stats.pos_y,
       });
     }
@@ -406,7 +407,7 @@ export default {
       const body = await request.json<{
         user_id: number; current_level: number; current_exp: number;
         hp: number; mp: number; str: number; dex: number; int: number; luk: number;
-        ap: number;
+        ap: number; mesos: number;
         map_id: number; pos_x: number; pos_y: number;
       }>();
 
@@ -415,14 +416,14 @@ export default {
           current_level = ?, current_exp = ?,
           hp = ?, mp = ?,
           str = ?, dex = ?, int_stat = ?, luk = ?,
-          ap = ?,
+          ap = ?, mesos = ?,
           map_id = ?, pos_x = ?, pos_y = ?
          WHERE user_id = ?`,
       ).bind(
         body.current_level, body.current_exp,
         body.hp, body.mp,
         body.str, body.dex, body.int, body.luk,
-        body.ap ?? 0,
+        body.ap ?? 0, body.mesos ?? 0,
         body.map_id, body.pos_x, body.pos_y,
         body.user_id,
       ).run();
