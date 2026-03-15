@@ -239,8 +239,8 @@ export default class LoginScene extends Phaser.Scene {
   _startGame(charStats) {
     this._destroyOverlay();
     const mapId  = charStats?.mapId  ?? 100000000;
-    const startX = charStats?.posX   ?? 1600;
-    const startY = charStats?.posY   ?? 1200;
+    const startX = charStats?.posX   ?? 960;
+    const startY = charStats?.posY   ?? 720;
     this.cameras.main.fade(500, 0, 0, 0, false, (_cam, p) => {
       if (p < 1) return;
       this.scene.start('GameScene', { mapId, startX, startY, charStats });

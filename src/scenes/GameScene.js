@@ -10,8 +10,8 @@ import { EXP_TABLE }     from '../constants/gameData';
 import SaveManager      from '../services/SaveManager.js';
 import ArenaClient   from '../services/ArenaClient.js';
 
-const DEFAULT_MAP_W = 3200;
-const DEFAULT_MAP_H = 2400;
+const DEFAULT_MAP_W = 1920;
+const DEFAULT_MAP_H = 1440;
 const ARENA_MAP_ID  = 200000000;
 
 // 모바일 여부 판단
@@ -174,7 +174,7 @@ export default class GameScene extends Phaser.Scene {
     const ly   = 12;
 
     // 버전 텍스트
-    this._versionTxt = this.add.text(lx, ly, 'v0.000.034', {
+    this._versionTxt = this.add.text(lx, ly, 'v0.000.035', {
       fontSize: '11px', color: '#aaaacc', backgroundColor: '#00000077', padding: { x:4,y:2 },
     }).setScrollFactor(0).setDepth(50);
 

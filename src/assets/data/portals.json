@@ -1,10 +1,10 @@
 [
-  { "portal_id": 1, "from_map_id": 100000000, "to_map_id": 100000001, "pos_x": 3100, "pos_y": 1200, "target_x": 150,  "target_y": 1200 },
-  { "portal_id": 2, "from_map_id": 100000001, "to_map_id": 100000000, "pos_x": 100,  "pos_y": 1200, "target_x": 3050, "target_y": 1200 },
-  { "portal_id": 3, "from_map_id": 100000001, "to_map_id": 100000002, "pos_x": 3100, "pos_y": 1200, "target_x": 150,  "target_y": 1200 },
-  { "portal_id": 4, "from_map_id": 100000002, "to_map_id": 100000001, "pos_x": 100,  "pos_y": 1200, "target_x": 3050, "target_y": 1200 },
-  { "portal_id": 5, "from_map_id": 100000002, "to_map_id": 100000003, "pos_x": 3100, "pos_y": 1200, "target_x": 150,  "target_y": 1200 },
-  { "portal_id": 6, "from_map_id": 100000003, "to_map_id": 100000002, "pos_x": 100,  "pos_y": 1200, "target_x": 3050, "target_y": 1200 },
-  { "portal_id": 7, "from_map_id": 100000000, "to_map_id": 200000000, "pos_x": 1600, "pos_y": 220,  "target_x": 800,  "target_y": 900  },
-  { "portal_id": 8, "from_map_id": 200000000, "to_map_id": 100000000, "pos_x": 800,  "pos_y": 1100, "target_x": 1600, "target_y": 380  }
+  { "portal_id": 1, "from_map_id": 100000000, "to_map_id": 100000001, "pos_x": 1860, "pos_y": 720, "target_x": 90,   "target_y": 720 },
+  { "portal_id": 2, "from_map_id": 100000001, "to_map_id": 100000000, "pos_x": 60,   "pos_y": 720, "target_x": 1830, "target_y": 720 },
+  { "portal_id": 3, "from_map_id": 100000001, "to_map_id": 100000002, "pos_x": 1860, "pos_y": 720, "target_x": 90,   "target_y": 720 },
+  { "portal_id": 4, "from_map_id": 100000002, "to_map_id": 100000001, "pos_x": 60,   "pos_y": 720, "target_x": 1830, "target_y": 720 },
+  { "portal_id": 5, "from_map_id": 100000002, "to_map_id": 100000003, "pos_x": 1860, "pos_y": 720, "target_x": 90,   "target_y": 720 },
+  { "portal_id": 6, "from_map_id": 100000003, "to_map_id": 100000002, "pos_x": 60,   "pos_y": 720, "target_x": 1830, "target_y": 720 },
+  { "portal_id": 7, "from_map_id": 100000000, "to_map_id": 200000000, "pos_x": 960,  "pos_y": 132, "target_x": 480,  "target_y": 540 },
+  { "portal_id": 8, "from_map_id": 200000000, "to_map_id": 100000000, "pos_x": 480,  "pos_y": 660, "target_x": 960,  "target_y": 228 }
 ]

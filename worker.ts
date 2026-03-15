@@ -352,7 +352,7 @@ export default {
       await env.DB.prepare(
         `INSERT INTO CHARACTER_STATS
          (user_id, current_level, current_exp, hp, mp, str, dex, int_stat, luk, map_id, pos_x, pos_y)
-         VALUES (?, 1, 0, 50, 50, 4, 4, 4, 4, 100000000, 1600, 1200)`,
+         VALUES (?, 1, 0, 50, 50, 4, 4, 4, 4, 100000000, 960, 720)`,
       ).bind(userId).run();
 
       return Response.json({ userId, username, message: '계정 생성 완료' }, { status: 201 });
