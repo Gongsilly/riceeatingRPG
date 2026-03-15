@@ -5,5 +5,12 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "riceeating-db",
+      "database_id": "f4121674-0701-44ca-b55b-710d330f020c"
+    }
+  ]
 }

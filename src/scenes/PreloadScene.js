@@ -1,8 +1,23 @@
-/* PreloadScene.js ─ 캔버스 기반 텍스처 생성 */
+/* PreloadScene.js ─ 캔버스 기반 텍스처 생성 + DB 데이터 프리로드 */
+import { db } from '../services/DatabaseService';
+
 export default class PreloadScene extends Phaser.Scene {
   constructor() { super('PreloadScene'); }
 
+  preload() {
+    // Production: Pages Function → Cloudflare D1
+    // Local dev:  Vite mock middleware → JSON 파일
+    this.load.json('monsters_data', '/api/monsters');
+    this.load.json('items_data',    '/api/items');
+  }
+
   create() {
+    // API 응답을 DatabaseService 메모리 캐시에 주입
+    db.seedFromPreload(
+      this.cache.json.get('monsters_data'),
+      this.cache.json.get('items_data'),
+    );
+
     this._genTileset();
     this._genTree();
     this._genPlayerSheet();
